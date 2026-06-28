@@ -95,7 +95,11 @@ class _DashboardViewState extends State<_DashboardView> {
     final state = widget.state;
 
     final now = _now;
-    final workEnd = DateTime(now.year, now.month, now.day, daily.workEndHour, daily.workEndMinute);
+    var workEnd = DateTime(now.year, now.month, now.day, daily.workEndHour, daily.workEndMinute);
+    // If work end is >12h in the past, the shift crosses midnight — target tomorrow's 1am
+    if (now.difference(workEnd).inHours > 12) {
+      workEnd = workEnd.add(const Duration(days: 1));
+    }
     final remaining = workEnd.difference(now);
     final isDone = remaining.isNegative;
 

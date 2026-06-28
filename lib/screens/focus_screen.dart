@@ -19,8 +19,9 @@ class FocusScreen extends StatefulWidget {
 }
 
 class _FocusScreenState extends State<FocusScreen> with SingleTickerProviderStateMixin {
-  static const _durations = [5, 15, 25, 45];
+  static const _presets = [5, 15, 25, 45];
   int _selectedMinutes = 25;
+  bool _isCustom = false;
   int _phase = 0; // 0=setup, 1=running
 
   late int _totalSeconds;
@@ -87,6 +88,33 @@ class _FocusScreenState extends State<FocusScreen> with SingleTickerProviderStat
     }
   }
 
+  Future<void> _pickCustomTime() async {
+    final controller = TextEditingController();
+    final result = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Custom duration'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(suffixText: 'min', hintText: '1–180'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final v = int.tryParse(controller.text.trim());
+              if (v != null && v >= 1 && v <= 180) Navigator.pop(ctx, v);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    if (result != null) setState(() { _selectedMinutes = result; _isCustom = true; });
+  }
+
   void _markDone() {
     _timer?.cancel();
     HapticFeedback.mediumImpact();
@@ -132,36 +160,53 @@ class _FocusScreenState extends State<FocusScreen> with SingleTickerProviderStat
           Text('Set timer duration', style: TextStyle(fontSize: 13, color: t.textSecondary)),
           const SizedBox(height: 16),
           Row(
-            children: _durations.map((min) {
-              final selected = min == _selectedMinutes;
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedMinutes = min),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: t.surface,
-                        borderRadius: BorderRadius.circular(AppRadii.large),
-                        boxShadow: selected ? t.insetShadow : t.buttonShadow,
-                      ),
-                      child: Column(children: [
-                        Text(
-                          '$min',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: selected ? t.accent : t.textPrimary,
-                          ),
+            children: [
+              ..._presets.map((min) {
+                final selected = !_isCustom && min == _selectedMinutes;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => setState(() { _selectedMinutes = min; _isCustom = false; }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: t.surface,
+                          borderRadius: BorderRadius.circular(AppRadii.large),
+                          boxShadow: selected ? t.insetShadow : t.buttonShadow,
                         ),
-                        Text('min', style: TextStyle(fontSize: 11, color: t.textTertiary)),
-                      ]),
+                        child: Column(children: [
+                          Text(
+                            '$min',
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: selected ? t.accent : t.textPrimary),
+                          ),
+                          Text('min', style: TextStyle(fontSize: 11, color: t.textTertiary)),
+                        ]),
+                      ),
                     ),
                   ),
+                );
+              }),
+              Expanded(
+                child: GestureDetector(
+                  onTap: _pickCustomTime,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: t.surface,
+                      borderRadius: BorderRadius.circular(AppRadii.large),
+                      boxShadow: _isCustom ? t.insetShadow : t.buttonShadow,
+                    ),
+                    child: Column(children: [
+                      _isCustom
+                          ? Text('$_selectedMinutes', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: t.accent))
+                          : Icon(Icons.edit_outlined, size: 22, color: t.textTertiary),
+                      Text('min', style: TextStyle(fontSize: 11, color: t.textTertiary)),
+                    ]),
+                  ),
                 ),
-              );
-            }).toList(),
+              ),
+            ],
           ),
           const SizedBox(height: 32),
           GestureDetector(

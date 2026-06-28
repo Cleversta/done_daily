@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../bloc/daily_bloc.dart';
+import '../bloc/daily_event.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
 import '../bloc/settings_state.dart';
@@ -143,6 +145,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (picked == null || !mounted) return;
     final updated = settings.copyWith(workEndHour: picked.hour, workEndMinute: picked.minute);
     _update(updated);
+    context.read<DailyBloc>().add(SetWorkEndTimeEvent(hour: picked.hour, minute: picked.minute));
     if (settings.notificationsEnabled && settings.workEndNotificationEnabled) {
       await NotificationService.instance.scheduleWorkEndNotification(picked.hour, picked.minute);
     }
@@ -382,11 +385,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  static const _weekdays = {
-    1: 'Mon', 2: 'Tue', 3: 'Wed',
-    4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun',
-  };
-
   @override
   Widget build(BuildContext context) {
     final t = NTheme.of(context);
@@ -413,80 +411,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: 'Dark mode',
                     value: settings.isDarkMode,
                     onChanged: (v) => _update(settings.copyWith(isDarkMode: v)),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Work Schedule ──────────────────────────────────────
-                _SectionLabel('WORK SCHEDULE'),
-                const SizedBox(height: 10),
-
-                _Card(
-                  child: _SettingRow(
-                    icon: Icons.schedule_outlined,
-                    label: 'Work ends at',
-                    value: settings.workEndDisplay,
-                    onTap: () => _pickWorkEndTime(settings),
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                _Card(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Row(children: [
-                          Icon(Icons.weekend_outlined, size: 20, color: t.textSecondary),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Rest days',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                        ]),
-                      ),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _weekdays.entries.map((e) {
-                          final isSelected = settings.restDays.contains(e.key);
-                          return GestureDetector(
-                            onTap: () {
-                              final days = List<int>.from(settings.restDays);
-                              isSelected ? days.remove(e.key) : days.add(e.key);
-                              _update(settings.copyWith(restDays: days));
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: t.surface,
-                                borderRadius: BorderRadius.circular(AppRadii.pill),
-                                boxShadow: isSelected ? t.insetShadow : t.buttonShadow,
-                              ),
-                              child: Text(
-                                e.value,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected ? AppColors.success : t.textTertiary,
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 4),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          'On rest days the app shows a quiet screen with no goals.',
-                          style: Theme.of(context).textTheme.labelMedium,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
 
@@ -533,7 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const _Divider(),
                           _SettingRow(
                             icon: Icons.schedule_outlined,
-                            label: 'Reminder time',
+                            label: 'End reminder time',
                             value: settings.workEndDisplay,
                             onTap: () => _pickWorkEndTime(settings),
                           ),
@@ -554,7 +478,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const _Divider(),
                           _SettingRow(
                             icon: Icons.access_time_outlined,
-                            label: 'Reminder time',
+                            label: 'Start reminder time',
                             value: settings.morningReminderDisplay,
                             onTap: () => _pickMorningTime(settings),
                           ),
@@ -575,7 +499,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const _Divider(),
                           _SettingRow(
                             icon: Icons.access_time_outlined,
-                            label: 'Reminder time',
+                            label: 'Summary reminder time',
                             value: settings.weeklyReminderDisplay,
                             onTap: () => _pickWeeklyTime(settings),
                           ),

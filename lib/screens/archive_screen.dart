@@ -4,7 +4,12 @@ import 'package:intl/intl.dart';
 import '../bloc/daily_bloc.dart';
 import '../bloc/daily_event.dart';
 import '../bloc/daily_state.dart';
+import '../bloc/settings_bloc.dart';
+import '../bloc/settings_event.dart';
+import '../bloc/settings_state.dart';
 import '../models/daily_model.dart';
+import '../models/settings_model.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 
 class ArchiveScreen extends StatefulWidget {
@@ -16,6 +21,11 @@ class ArchiveScreen extends StatefulWidget {
 
 class _ArchiveScreenState extends State<ArchiveScreen> {
   late DateTime _viewMonth;
+
+  static const _weekdays = {
+    1: 'Mon', 2: 'Tue', 3: 'Wed',
+    4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun',
+  };
 
   @override
   void initState() {
@@ -37,17 +47,29 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
 
   void _nextMonth() {
     final now = DateTime.now();
-    if (_viewMonth.year == now.year && _viewMonth.month == now.month) return;
+    final maxMonth = DateTime(now.year, now.month + 12);
+    if (_viewMonth.isAfter(maxMonth)) return;
     setState(() => _viewMonth = DateTime(_viewMonth.year, _viewMonth.month + 1));
     _load();
+  }
+
+  Future<void> _pickWorkEndTime(AppSettings settings) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: settings.workEndHour, minute: settings.workEndMinute),
+    );
+    if (picked == null || !mounted) return;
+    final updated = settings.copyWith(workEndHour: picked.hour, workEndMinute: picked.minute);
+    context.read<SettingsBloc>().add(UpdateSettingsEvent(updated));
+    context.read<DailyBloc>().add(SetWorkEndTimeEvent(hour: picked.hour, minute: picked.minute));
+    if (settings.notificationsEnabled && settings.workEndNotificationEnabled) {
+      await NotificationService.instance.scheduleWorkEndNotification(picked.hour, picked.minute);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = NTheme.of(context);
-    final now = DateTime.now();
-    final isCurrentMonth = _viewMonth.year == now.year && _viewMonth.month == now.month;
-
     return Scaffold(
       backgroundColor: t.background,
       body: SafeArea(
@@ -60,14 +82,11 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('Archive', style: Theme.of(context).textTheme.displayLarge),
+                    child: Text('Calendar', style: Theme.of(context).textTheme.displayLarge),
                   ),
                   _NavArrow(icon: Icons.chevron_left, onTap: _prevMonth),
                   const SizedBox(width: 4),
-                  _NavArrow(
-                    icon: Icons.chevron_right,
-                    onTap: isCurrentMonth ? null : _nextMonth,
-                  ),
+                  _NavArrow(icon: Icons.chevron_right, onTap: _nextMonth),
                 ],
               ),
             ),
@@ -83,12 +102,26 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
             // Body
             Expanded(
               child: BlocBuilder<DailyBloc, DailyState>(
-                builder: (context, state) {
-                  if (state is MonthlyArchiveLoaded) {
-                    return _MonthBody(state: state, viewMonth: _viewMonth);
-                  }
-                  return Center(
-                    child: CircularProgressIndicator(color: t.textPrimary),
+                builder: (context, dailyState) {
+                  return BlocBuilder<SettingsBloc, SettingsState>(
+                    builder: (context, settingsState) {
+                      final settings = settingsState is SettingsLoaded ? settingsState.settings : const AppSettings();
+                      if (dailyState is MonthlyArchiveLoaded) {
+                        return _MonthBody(
+                          state: dailyState,
+                          viewMonth: _viewMonth,
+                          settings: settings,
+                          onPickWorkEnd: () => _pickWorkEndTime(settings),
+                          onToggleRestDay: (day) {
+                            final days = List<int>.from(settings.restDays);
+                            days.contains(day) ? days.remove(day) : days.add(day);
+                            context.read<SettingsBloc>().add(UpdateSettingsEvent(settings.copyWith(restDays: days)));
+                          },
+                          weekdays: _weekdays,
+                        );
+                      }
+                      return Center(child: CircularProgressIndicator(color: t.textPrimary));
+                    },
                   );
                 },
               ),
@@ -105,42 +138,119 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
 class _MonthBody extends StatelessWidget {
   final MonthlyArchiveLoaded state;
   final DateTime viewMonth;
+  final AppSettings settings;
+  final VoidCallback onPickWorkEnd;
+  final void Function(int day) onToggleRestDay;
+  final Map<int, String> weekdays;
 
-  const _MonthBody({required this.state, required this.viewMonth});
+  const _MonthBody({
+    required this.state,
+    required this.viewMonth,
+    required this.settings,
+    required this.onPickWorkEnd,
+    required this.onToggleRestDay,
+    required this.weekdays,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final t = NTheme.of(context);
     final dataMap = {for (final d in state.monthlyData) d.id: d};
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
       children: [
-        // Stats row
+        // ── Work Schedule ─────────────────────────────────────────────
+        _SectionLabel('WORK SCHEDULE'),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: t.surface,
+            borderRadius: BorderRadius.circular(AppRadii.large),
+            boxShadow: t.boxShadow,
+          ),
+          child: Column(
+            children: [
+              // Work end time
+              GestureDetector(
+                onTap: onPickWorkEnd,
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  child: Row(
+                    children: [
+                      Icon(Icons.schedule_outlined, size: 20, color: t.textSecondary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text('Work ends at', style: Theme.of(context).textTheme.bodyMedium),
+                      ),
+                      Text(settings.workEndDisplay, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.accent)),
+                      const SizedBox(width: 4),
+                      Icon(Icons.chevron_right, size: 18, color: t.textTertiary),
+                    ],
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: t.shadowDark),
+              // Rest days
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.weekend_outlined, size: 20, color: t.textSecondary),
+                        const SizedBox(width: 12),
+                        Text('Weekly rest days', style: Theme.of(context).textTheme.bodyMedium),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: weekdays.entries.map((e) {
+                        final isSelected = settings.restDays.contains(e.key);
+                        return GestureDetector(
+                          onTap: () => onToggleRestDay(e.key),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: t.surface,
+                              borderRadius: BorderRadius.circular(AppRadii.pill),
+                              boxShadow: isSelected ? t.insetShadow : t.buttonShadow,
+                            ),
+                            child: Text(
+                              e.value,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isSelected ? AppColors.success : t.textTertiary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // ── Stats row ─────────────────────────────────────────────────
+        _SectionLabel('THIS MONTH'),
+        const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(
-              child: _StatCard(
-                label: 'COMPLETED',
-                value: '${state.completedDays}',
-                sub: 'days',
-              ),
-            ),
+            Expanded(child: _StatCard(label: 'COMPLETED', value: '${state.completedDays}', sub: 'days')),
             const SizedBox(width: 10),
-            Expanded(
-              child: _StatCard(
-                label: 'TRACKED',
-                value: '${state.totalTrackedDays}',
-                sub: 'days',
-              ),
-            ),
+            Expanded(child: _StatCard(label: 'TRACKED', value: '${state.totalTrackedDays}', sub: 'days')),
             const SizedBox(width: 10),
-            Expanded(
-              child: _StatCard(
-                label: 'STREAK',
-                value: '${state.streak}',
-                sub: 'days 🔥',
-              ),
-            ),
+            Expanded(child: _StatCard(label: 'STREAK', value: '${state.streak}', sub: 'days 🔥')),
           ],
         ),
         const SizedBox(height: 20),
@@ -152,6 +262,20 @@ class _MonthBody extends StatelessWidget {
         // Daily breakdown
         ...state.monthlyData.reversed.map((daily) => _DayRow(daily: daily)),
       ],
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = NTheme.of(context);
+    return Text(
+      text,
+      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.2, color: t.textTertiary),
     );
   }
 }
@@ -209,6 +333,8 @@ class _CalendarGridState extends State<_CalendarGrid> {
 
   void _showDaySheet(BuildContext context, DateTime date, Daily? daily) {
     setState(() => _selectedDate = date);
+    final now = DateTime.now();
+    final isFuture = date.isAfter(DateTime(now.year, now.month, now.day));
     final t = NTheme.of(context);
     showModalBottomSheet(
       context: context,
@@ -218,7 +344,7 @@ class _CalendarGridState extends State<_CalendarGrid> {
       ),
       builder: (innerCtx) => BlocProvider.value(
         value: context.read<DailyBloc>(),
-        child: _DayDetailSheet(date: date, daily: daily),
+        child: _DayDetailSheet(date: date, daily: daily, isFuture: isFuture),
       ),
     ).whenComplete(() => setState(() => _selectedDate = null));
   }
@@ -286,7 +412,7 @@ class _CalendarGridState extends State<_CalendarGrid> {
               }
 
               return GestureDetector(
-                onTap: isFuture ? null : () => _showDaySheet(context, date, daily),
+                onTap: () => _showDaySheet(context, date, daily),
                 child: Container(
                   decoration: BoxDecoration(
                     color: dotColor,
@@ -498,8 +624,9 @@ class _NavArrow extends StatelessWidget {
 class _DayDetailSheet extends StatefulWidget {
   final DateTime date;
   final Daily? daily;
+  final bool isFuture;
 
-  const _DayDetailSheet({required this.date, required this.daily});
+  const _DayDetailSheet({required this.date, required this.daily, this.isFuture = false});
 
   @override
   State<_DayDetailSheet> createState() => _DayDetailSheetState();
@@ -507,11 +634,13 @@ class _DayDetailSheet extends StatefulWidget {
 
 class _DayDetailSheetState extends State<_DayDetailSheet> {
   late TextEditingController _reflectionController;
+  late bool _isRestDay;
 
   @override
   void initState() {
     super.initState();
     _reflectionController = TextEditingController(text: widget.daily?.reflection ?? '');
+    _isRestDay = widget.daily?.isRestDay ?? false;
   }
 
   @override
@@ -520,12 +649,21 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
     super.dispose();
   }
 
+  void _toggleRestDay() {
+    final newValue = !_isRestDay;
+    setState(() => _isRestDay = newValue);
+    context.read<DailyBloc>().add(
+      ToggleArchiveRestDayEvent(date: widget.date, isRestDay: newValue),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = NTheme.of(context);
     final now = DateTime.now();
     final date = widget.date;
     final daily = widget.daily;
+    final isFuture = widget.isFuture;
     final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
 
     return Padding(
@@ -573,85 +711,106 @@ class _DayDetailSheetState extends State<_DayDetailSheet> {
 
           const SizedBox(height: 16),
 
-          if (daily == null) ...[
-            Text('No data recorded for this day.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textTertiary)),
-          ] else if (daily.isRestDay) ...[
-            Row(
+          // Rest day toggle — always visible for past days
+          GestureDetector(
+            onTap: _toggleRestDay,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
               children: [
-                const Icon(Icons.self_improvement_outlined, size: 18, color: AppColors.accent),
-                const SizedBox(width: 8),
-                Text('Rest day', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.accent)),
-              ],
-            ),
-          ] else if (daily.goals.isEmpty) ...[
-            Text('No goals set for this day.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textTertiary)),
-          ] else ...[
-            // Summary line
-            Text(
-              '${daily.completedGoalsCount} of ${daily.totalGoalsCount} completed',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: daily.allGoalsCompleted ? AppColors.success : t.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Goal list
-            ...daily.goals.map((g) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Icon(
-                    g.isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                    size: 18,
-                    color: g.isCompleted ? AppColors.success : t.textTertiary,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      g.title,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: g.isCompleted ? t.textPrimary : t.textSecondary,
-                        decoration: g.isCompleted ? TextDecoration.lineThrough : null,
-                        decorationColor: t.textTertiary,
-                      ),
+                Icon(
+                  Icons.self_improvement_outlined,
+                  size: 18,
+                  color: _isRestDay ? AppColors.accent : t.textTertiary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Rest day',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: _isRestDay ? AppColors.accent : t.textSecondary,
                     ),
                   ),
-                  if (g.isPriority)
-                    const Icon(Icons.star_rounded, size: 14, color: AppColors.warning),
-                ],
-              ),
-            )),
-          ],
+                ),
+                Switch(
+                  value: _isRestDay,
+                  onChanged: (_) => _toggleRestDay(),
+                  activeThumbColor: AppColors.accent,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+          ),
 
-          // Reflection section — editable for non-rest days with data
-          if (daily != null && !daily.isRestDay) ...[
-            Divider(height: 24, color: t.shadowDark),
-            Text(
-              'Reflection',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _reflectionController,
-              maxLines: null,
-              minLines: 2,
-              textCapitalization: TextCapitalization.sentences,
-              style: TextStyle(fontSize: 13, color: t.textPrimary),
-              decoration: InputDecoration(
-                hintText: 'How did today go?',
-                filled: true,
-                fillColor: t.surface,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                hintStyle: TextStyle(color: t.textTertiary, fontSize: 13),
+          if (!_isRestDay && !isFuture) ...[
+            const SizedBox(height: 12),
+            if (daily == null || daily.goals.isEmpty)
+              Text(
+                'No goals set for this day.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textTertiary),
+              )
+            else ...[
+              Text(
+                '${daily.completedGoalsCount} of ${daily.totalGoalsCount} completed',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: daily.allGoalsCompleted ? AppColors.success : t.textSecondary,
+                ),
               ),
-              onChanged: (value) {
-                context.read<DailyBloc>().add(
-                  UpdateArchiveReflectionEvent(dailyId: daily.id, text: value),
-                );
-              },
-            ),
+              const SizedBox(height: 12),
+              ...daily.goals.map((g) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      g.isCompleted ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                      size: 18,
+                      color: g.isCompleted ? AppColors.success : t.textTertiary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        g.title,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: g.isCompleted ? t.textPrimary : t.textSecondary,
+                          decoration: g.isCompleted ? TextDecoration.lineThrough : null,
+                          decorationColor: t.textTertiary,
+                        ),
+                      ),
+                    ),
+                    if (g.isPriority)
+                      const Icon(Icons.star_rounded, size: 14, color: AppColors.warning),
+                  ],
+                ),
+              )),
+            ],
+
+            // Reflection — only for non-rest days with a daily record
+            if (daily != null) ...[
+              Divider(height: 24, color: t.shadowDark),
+              Text('Reflection', style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _reflectionController,
+                maxLines: null,
+                minLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                style: TextStyle(fontSize: 13, color: t.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'How did today go?',
+                  filled: true,
+                  fillColor: t.surface,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  hintStyle: TextStyle(color: t.textTertiary, fontSize: 13),
+                ),
+                onChanged: (value) {
+                  context.read<DailyBloc>().add(
+                    UpdateArchiveReflectionEvent(dailyId: daily.id, text: value),
+                  );
+                },
+              ),
+            ],
           ],
         ],
       ),

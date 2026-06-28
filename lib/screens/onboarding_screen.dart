@@ -36,7 +36,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   void _next() {
     _pageController.nextPage(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 350),
       curve: Curves.easeInOut,
     );
   }
@@ -55,7 +55,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Align(
               alignment: Alignment.topRight,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 12, 20, 0),
+                padding: const EdgeInsets.fromLTRB(0, 16, 20, 0),
                 child: GestureDetector(
                   onTap: _markSeenAndGo,
                   child: Text(
@@ -73,8 +73,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _currentPage = i),
                 children: const [
                   _WelcomePage(),
-                  _GoalsPage(),
-                  _FocusPage(),
+                  _TodayPage(),
+                  _CalendarPage(),
                   _ReadyPage(),
                 ],
               ),
@@ -82,7 +82,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             // Dots
             Padding(
-              padding: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.only(bottom: 16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(_totalPages, (i) {
@@ -90,12 +90,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   return AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: active ? 22 : 7,
+                    width: active ? 24 : 7,
                     height: 7,
                     decoration: BoxDecoration(
-                      color: active
-                          ? t.textPrimary
-                          : t.textTertiary.withValues(alpha: 0.35),
+                      color: active ? t.accent : t.textTertiary.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(AppRadii.pill),
                     ),
                   );
@@ -112,17 +110,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: t.surface,
+                    color: isLast ? t.accent : t.surface,
                     borderRadius: BorderRadius.circular(AppRadii.large),
-                    boxShadow: t.buttonShadow,
+                    boxShadow: isLast
+                        ? [BoxShadow(color: t.accent.withValues(alpha: 0.35), blurRadius: 16, offset: const Offset(0, 6))]
+                        : t.buttonShadow,
                   ),
                   child: Center(
                     child: Text(
-                      isLast ? "Let's go" : 'Next',
+                      isLast ? "Let's get started" : 'Next',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: t.textPrimary,
+                        color: isLast ? Colors.white : t.textPrimary,
                       ),
                     ),
                   ),
@@ -150,39 +150,48 @@ class _WelcomePage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 96,
-            height: 96,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
-              color: t.surface,
+              color: t.accent.withValues(alpha: 0.12),
               shape: BoxShape.circle,
-              boxShadow: t.boxShadow,
             ),
             child: Center(
-              child: Icon(Icons.check_circle_outline_rounded, size: 48, color: t.accent),
+              child: Icon(Icons.check_circle_outline_rounded, size: 52, color: t.accent),
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 32),
           Text(
             'DONE:Daily',
             style: Theme.of(context).textTheme.displayLarge,
+            textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
             'Your day has a finish line.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: t.textSecondary),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: t.textSecondary),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 290),
+            constraints: const BoxConstraints(maxWidth: 280),
             child: Text(
-              'Set your goals each morning. Complete them. Then close the app and rest — for real.',
+              'Set your goals each morning. Work through them. Then close the app and rest — for real.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: t.textTertiary,
-                    height: 1.6,
-                  ),
+              style: TextStyle(fontSize: 14, color: t.textTertiary, height: 1.65),
             ),
+          ),
+          const SizedBox(height: 32),
+          // Three pillars
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _Pillar(icon: Icons.flag_outlined, label: 'Set goals', t: t),
+              const SizedBox(width: 20),
+              _Pillar(icon: Icons.timer_outlined, label: 'Focus', t: t),
+              const SizedBox(width: 20),
+              _Pillar(icon: Icons.nights_stay_outlined, label: 'Rest', t: t),
+            ],
           ),
         ],
       ),
@@ -190,10 +199,37 @@ class _WelcomePage extends StatelessWidget {
   }
 }
 
-// ─── Page 2 — Goals ───────────────────────────────────────────────────────────
+class _Pillar extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final NTheme t;
+  const _Pillar({required this.icon, required this.label, required this.t});
 
-class _GoalsPage extends StatelessWidget {
-  const _GoalsPage();
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: t.surface,
+            shape: BoxShape.circle,
+            boxShadow: t.boxShadow,
+          ),
+          child: Center(child: Icon(icon, size: 24, color: t.accent)),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.textSecondary)),
+      ],
+    );
+  }
+}
+
+// ─── Page 2 — Today tab ───────────────────────────────────────────────────────
+
+class _TodayPage extends StatelessWidget {
+  const _TodayPage();
 
   @override
   Widget build(BuildContext context) {
@@ -204,45 +240,58 @@ class _GoalsPage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Your daily goals', style: Theme.of(context).textTheme.headlineLarge),
-          const SizedBox(height: 6),
-          Text(
-            'Add what you want to finish today. Tap the box to complete.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textSecondary, height: 1.5),
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: t.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(child: Icon(Icons.today_rounded, size: 24, color: t.accent)),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Today tab', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: t.textPrimary)),
+                  Text('Your daily workspace', style: TextStyle(fontSize: 13, color: t.textTertiary)),
+                ],
+              ),
+            ],
           ),
           const SizedBox(height: 24),
-
-          // Mock goal tiles
-          _MockGoalTile(title: 'Morning walk', completed: true, priority: true),
-          const SizedBox(height: 8),
-          _MockGoalTile(title: 'Reply to emails', completed: true, priority: false),
-          const SizedBox(height: 8),
-          _MockGoalTile(title: 'Cook dinner', completed: false, priority: false, showHint: true),
-          const SizedBox(height: 8),
-          _MockGoalTile(title: 'Call mum', completed: false, priority: false),
-
-          const SizedBox(height: 20),
-          // Hint row
-          Row(
-            children: [
-              Icon(Icons.star_rounded, size: 14, color: AppColors.warning),
-              const SizedBox(width: 6),
-              Text(
-                'Star = priority goal — shown at the top',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: t.textTertiary),
-              ),
-            ],
+          _FeatureRow(
+            icon: Icons.add_circle_outline_rounded,
+            color: AppColors.success,
+            title: 'Add goals',
+            subtitle: 'Tap "+ Add Goal" at the bottom to add what you need to finish today.',
+            t: t,
           ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(Icons.play_arrow_rounded, size: 14, color: t.accent),
-              const SizedBox(width: 6),
-              Text(
-                '▶ starts a focus timer for that goal',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: t.textTertiary),
-              ),
-            ],
+          const SizedBox(height: 14),
+          _FeatureRow(
+            icon: Icons.check_box_outlined,
+            color: AppColors.success,
+            title: 'Complete them',
+            subtitle: 'Tap the checkbox on each goal to mark it done. Long-press to edit.',
+            t: t,
+          ),
+          const SizedBox(height: 14),
+          _FeatureRow(
+            icon: Icons.timer_outlined,
+            color: t.accent,
+            title: 'Focus mode',
+            subtitle: 'Tap the ▶ button on any goal to start a timed focus session.',
+            t: t,
+          ),
+          const SizedBox(height: 14),
+          _FeatureRow(
+            icon: Icons.edit_note_rounded,
+            color: t.accent,
+            title: 'Daily reflection',
+            subtitle: 'Write a short note at the top about how your day is going.',
+            t: t,
           ),
         ],
       ),
@@ -250,95 +299,10 @@ class _GoalsPage extends StatelessWidget {
   }
 }
 
-class _MockGoalTile extends StatelessWidget {
-  final String title;
-  final bool completed;
-  final bool priority;
-  final bool showHint;
+// ─── Page 3 — Calendar tab ────────────────────────────────────────────────────
 
-  const _MockGoalTile({
-    required this.title,
-    required this.completed,
-    required this.priority,
-    this.showHint = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = NTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(AppRadii.large),
-        boxShadow: t.subtleShadow,
-      ),
-      child: Row(
-        children: [
-          // Priority star
-          Icon(
-            priority ? Icons.star_rounded : Icons.star_outline_rounded,
-            size: 18,
-            color: priority ? AppColors.warning : t.textTertiary.withValues(alpha: 0.4),
-          ),
-          const SizedBox(width: 10),
-          // Title
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: completed ? t.textTertiary : t.textPrimary,
-                decoration: completed ? TextDecoration.lineThrough : null,
-                decorationColor: t.textTertiary,
-              ),
-            ),
-          ),
-          // Play button hint
-          if (!completed) ...[
-            Icon(Icons.play_arrow_rounded, size: 18, color: t.accent.withValues(alpha: 0.7)),
-            const SizedBox(width: 8),
-          ],
-          // Checkbox
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: completed ? AppColors.success : t.surface,
-              borderRadius: BorderRadius.circular(6),
-              boxShadow: completed ? t.insetShadow : t.buttonShadow,
-              border: completed
-                  ? null
-                  : Border.all(color: t.textTertiary.withValues(alpha: 0.35), width: 1.5),
-            ),
-            child: completed
-                ? const Center(child: Icon(Icons.check_rounded, size: 14, color: Colors.white))
-                : null,
-          ),
-          // Tap hint arrow
-          if (showHint) ...[
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: t.accent.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text('tap', style: TextStyle(fontSize: 10, color: t.accent, fontWeight: FontWeight.w700)),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Page 3 — Focus ───────────────────────────────────────────────────────────
-
-class _FocusPage extends StatelessWidget {
-  const _FocusPage();
+class _CalendarPage extends StatelessWidget {
+  const _CalendarPage();
 
   @override
   Widget build(BuildContext context) {
@@ -347,123 +311,62 @@ class _FocusPage extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Focus on one goal', style: Theme.of(context).textTheme.headlineLarge, textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          Text(
-            'Tap ▶ on any goal to start a timed session. No distractions.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textSecondary, height: 1.5),
-          ),
-          const SizedBox(height: 32),
-
-          // Mock focus timer
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
-            decoration: BoxDecoration(
-              color: t.surface,
-              borderRadius: BorderRadius.circular(AppRadii.large),
-              boxShadow: t.boxShadow,
-            ),
-            child: Column(
-              children: [
-                Text('Study Flutter', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 20),
-                // Mock ring
-                SizedBox(
-                  width: 110,
-                  height: 110,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox(
-                        width: 110,
-                        height: 110,
-                        child: CircularProgressIndicator(
-                          value: 0.6,
-                          strokeWidth: 8,
-                          backgroundColor: t.textTertiary.withValues(alpha: 0.15),
-                          color: t.accent,
-                        ),
-                      ),
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('15:00', style: Theme.of(context).textTheme.headlineLarge),
-                          Text('min', style: Theme.of(context).textTheme.labelMedium),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _MockButton(label: '⏸ Pause', color: t.textSecondary),
-                    const SizedBox(width: 12),
-                    _MockButton(label: '✓ Mark Done', color: AppColors.success),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 20),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _DurationChip('5 min', t),
-              _DurationChip('15 min', t, active: true),
-              _DurationChip('25 min', t),
-              _DurationChip('45 min', t),
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: t.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(child: Icon(Icons.calendar_month_rounded, size: 24, color: t.accent)),
+              ),
+              const SizedBox(width: 14),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Calendar tab', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: t.textPrimary)),
+                  Text('Plan & review', style: TextStyle(fontSize: 13, color: t.textTertiary)),
+                ],
+              ),
             ],
           ),
+          const SizedBox(height: 24),
+          _FeatureRow(
+            icon: Icons.schedule_outlined,
+            color: t.accent,
+            title: 'Set work end time',
+            subtitle: 'Tell the app when your shift ends — it shows a live countdown on Today.',
+            t: t,
+          ),
+          const SizedBox(height: 14),
+          _FeatureRow(
+            icon: Icons.weekend_outlined,
+            color: AppColors.warning,
+            title: 'Weekly rest days',
+            subtitle: 'Pick which days of the week you always rest (e.g. Sunday).',
+            t: t,
+          ),
+          const SizedBox(height: 14),
+          _FeatureRow(
+            icon: Icons.self_improvement_outlined,
+            color: AppColors.accent,
+            title: 'Mark holidays in advance',
+            subtitle: 'Tap any future date on the calendar to mark it as a rest day.',
+            t: t,
+          ),
+          const SizedBox(height: 14),
+          _FeatureRow(
+            icon: Icons.bar_chart_rounded,
+            color: AppColors.success,
+            title: 'Review past days',
+            subtitle: 'See your completed goals and reflections for any previous date.',
+            t: t,
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _MockButton extends StatelessWidget {
-  final String label;
-  final Color color;
-  const _MockButton({required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = NTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(AppRadii.pill),
-        boxShadow: t.buttonShadow,
-      ),
-      child: Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
-    );
-  }
-}
-
-class _DurationChip extends StatelessWidget {
-  final String label;
-  final NTheme t;
-  final bool active;
-  const _DurationChip(this.label, this.t, {this.active = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: t.surface,
-        borderRadius: BorderRadius.circular(AppRadii.pill),
-        boxShadow: active ? t.insetShadow : t.subtleShadow,
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 11, color: active ? t.accent : t.textTertiary, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -483,69 +386,113 @@ class _ReadyPage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 88,
-            height: 88,
+            width: 100,
+            height: 100,
             decoration: BoxDecoration(
-              color: t.surface,
+              color: AppColors.success.withValues(alpha: 0.12),
               shape: BoxShape.circle,
-              boxShadow: t.boxShadow,
             ),
             child: Center(
-              child: Icon(Icons.nights_stay_outlined, size: 42, color: t.accent),
+              child: Icon(Icons.rocket_launch_outlined, size: 50, color: AppColors.success),
             ),
           ),
           const SizedBox(height: 28),
-          Text("You're all set.", style: Theme.of(context).textTheme.displayLarge, textAlign: TextAlign.center),
-          const SizedBox(height: 16),
+          Text(
+            "You're all set.",
+            style: Theme.of(context).textTheme.displayLarge,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 290),
+            constraints: const BoxConstraints(maxWidth: 280),
             child: Text(
-              'Add your goals for today, focus on them one by one, and when they\'re all done — rest. That\'s it.',
+              'Add your goals, focus on them one by one, and when they\'re done — rest. That\'s it.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textSecondary, height: 1.6),
+              style: TextStyle(fontSize: 14, color: t.textTertiary, height: 1.65),
             ),
           ),
           const SizedBox(height: 32),
-          // Quick tips
-          _TipRow(icon: Icons.bar_chart_rounded, text: 'Archive tab — see any past day', t: t),
-          const SizedBox(height: 10),
-          _TipRow(icon: Icons.repeat_rounded, text: 'Recurring goals — auto habits', t: t),
-          const SizedBox(height: 10),
-          _TipRow(icon: Icons.edit_note_rounded, text: 'Reflection — daily journal at the top', t: t),
-          const SizedBox(height: 10),
-          _TipRow(icon: Icons.settings_outlined, text: 'Settings — notifications & dark mode', t: t),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: t.surface,
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              boxShadow: t.boxShadow,
+            ),
+            child: Column(
+              children: [
+                _TipRow(icon: Icons.star_rounded, color: AppColors.warning, text: 'Star a goal to mark it priority — it moves to the top', t: t),
+                const SizedBox(height: 12),
+                _TipRow(icon: Icons.repeat_rounded, color: t.accent, text: 'Add recurring goals in Settings — they appear every day', t: t),
+                const SizedBox(height: 12),
+                _TipRow(icon: Icons.notifications_outlined, color: t.accent, text: 'Enable notifications to get a work-end reminder', t: t),
+                const SizedBox(height: 12),
+                _TipRow(icon: Icons.dark_mode_outlined, color: t.textSecondary, text: 'Switch dark/light mode in Settings anytime', t: t),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _TipRow extends StatelessWidget {
+// ─── Shared widgets ───────────────────────────────────────────────────────────
+
+class _FeatureRow extends StatelessWidget {
   final IconData icon;
-  final String text;
+  final Color color;
+  final String title;
+  final String subtitle;
   final NTheme t;
-  const _TipRow({required this.icon, required this.text, required this.t});
+  const _FeatureRow({required this.icon, required this.color, required this.title, required this.subtitle, required this.t});
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 32,
-          height: 32,
+          width: 38,
+          height: 38,
           decoration: BoxDecoration(
-            color: t.surface,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: t.subtleShadow,
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Center(child: Icon(icon, size: 16, color: t.accent)),
+          child: Center(child: Icon(icon, size: 20, color: color)),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
-          child: Text(
-            text,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textSecondary),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: t.textPrimary)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: TextStyle(fontSize: 12, color: t.textTertiary, height: 1.5)),
+            ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TipRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String text;
+  final NTheme t;
+  const _TipRow({required this.icon, required this.color, required this.text, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(text, style: TextStyle(fontSize: 12, color: t.textSecondary, height: 1.45)),
         ),
       ],
     );

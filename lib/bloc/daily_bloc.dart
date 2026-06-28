@@ -38,6 +38,7 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
     on<DismissCarryoverEvent>(_onDismissCarryover);
     on<UpdateReflectionEvent>(_onUpdateReflection);
     on<UpdateArchiveReflectionEvent>(_onUpdateArchiveReflection);
+    on<ToggleArchiveRestDayEvent>(_onToggleArchiveRestDay);
   }
 
   AppSettings get _settings => _settingsBox.get('app_settings') ?? const AppSettings();
@@ -71,6 +72,10 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
           workEndMinute: settings.workEndMinute,
           isRestDay: settings.restDays.contains(today.weekday),
         );
+        await _dailyBox.put(todayKey, daily);
+      } else if (daily.workEndHour != settings.workEndHour || daily.workEndMinute != settings.workEndMinute) {
+        // Keep today's daily in sync with settings whenever they diverge
+        daily = daily.copyWith(workEndHour: settings.workEndHour, workEndMinute: settings.workEndMinute);
         await _dailyBox.put(todayKey, daily);
       }
 
@@ -193,6 +198,9 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
     final current = _currentDaily(); if (current == null) return;
     final updated = current.copyWith(workEndHour: event.hour, workEndMinute: event.minute);
     await _save(updated);
+    // Keep settings in sync so other days default to the new time
+    final updatedSettings = _settings.copyWith(workEndHour: event.hour, workEndMinute: event.minute);
+    await _settingsBox.put('app_settings', updatedSettings);
     emit(DailyLoaded(updated, streak: _calcStreak(DateTime.now())));
   }
 
@@ -216,6 +224,29 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
     final updated = daily.copyWith(reflection: event.text);
     await _dailyBox.put(event.dailyId, updated);
     // Don't change the current DailyLoaded state — archive edits are background saves
+  }
+
+  Future<void> _onToggleArchiveRestDay(ToggleArchiveRestDayEvent event, Emitter<DailyState> emit) async {
+    final key = _dateKey(event.date);
+    Daily? daily = _dailyBox.get(key);
+    if (!event.isRestDay && daily != null && daily.goals.isEmpty &&
+        daily.reflection.isEmpty &&
+        (daily.notes == null || daily.notes!.isEmpty)) {
+      // No meaningful data left — remove the record entirely so it vanishes from the list
+      await _dailyBox.delete(key);
+    } else if (daily == null) {
+      daily = Daily(
+        id: key,
+        date: event.date,
+        workEndHour: _settings.workEndHour,
+        workEndMinute: _settings.workEndMinute,
+        isRestDay: event.isRestDay,
+      );
+      await _dailyBox.put(key, daily);
+    } else {
+      await _dailyBox.put(key, daily.copyWith(isRestDay: event.isRestDay));
+    }
+    emit(_buildMonthlyState(event.date.year, event.date.month));
   }
 
   Future<void> _onCompleteWindDown(CompleteWindDownEvent event, Emitter<DailyState> emit) async {
@@ -263,31 +294,36 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
     }
   }
 
+  MonthlyArchiveLoaded _buildMonthlyState(int year, int month) {
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    final monthlyData = <Daily>[];
+    int completedDays = 0;
+    final now = DateTime.now();
+
+    for (int d = 1; d <= daysInMonth; d++) {
+      final date = DateTime(year, month, d);
+      if (date.isAfter(DateTime(now.year, now.month, now.day))) break;
+      final daily = _dailyBox.get(_dateKey(date));
+      if (daily != null && (daily.isRestDay || daily.goals.isNotEmpty)) {
+        monthlyData.add(daily);
+        if (daily.isRestDay || daily.completedGoalsCount > 0) completedDays++;
+      }
+    }
+
+    return MonthlyArchiveLoaded(
+      monthlyData: monthlyData,
+      year: year,
+      month: month,
+      completedDays: completedDays,
+      totalTrackedDays: monthlyData.length,
+      streak: _calcStreak(now),
+    );
+  }
+
   Future<void> _onLoadMonthlyArchive(LoadMonthlyArchiveEvent event, Emitter<DailyState> emit) async {
     try {
       emit(const DailyLoading());
-      final daysInMonth = DateTime(event.year, event.month + 1, 0).day;
-      final monthlyData = <Daily>[];
-      int completedDays = 0;
-
-      for (int d = 1; d <= daysInMonth; d++) {
-        final date = DateTime(event.year, event.month, d);
-        if (date.isAfter(DateTime.now())) break;
-        final daily = _dailyBox.get(_dateKey(date));
-        if (daily != null) {
-          monthlyData.add(daily);
-          if (daily.isRestDay || daily.completedGoalsCount > 0) completedDays++;
-        }
-      }
-
-      emit(MonthlyArchiveLoaded(
-        monthlyData: monthlyData,
-        year: event.year,
-        month: event.month,
-        completedDays: completedDays,
-        totalTrackedDays: monthlyData.length,
-        streak: _calcStreak(DateTime.now()),
-      ));
+      emit(_buildMonthlyState(event.year, event.month));
     } catch (e) {
       emit(DailyError('Failed to load monthly archive: $e'));
     }

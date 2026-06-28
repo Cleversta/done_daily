@@ -183,3 +183,11 @@ class UpdateArchiveReflectionEvent extends DailyEvent {
   @override
   List<Object?> get props => [dailyId, text];
 }
+
+class ToggleArchiveRestDayEvent extends DailyEvent {
+  final DateTime date;
+  final bool isRestDay;
+  const ToggleArchiveRestDayEvent({required this.date, required this.isRestDay});
+  @override
+  List<Object?> get props => [date, isRestDay];
+}

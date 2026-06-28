@@ -129,9 +129,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               label: 'Today',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_outlined),
-              activeIcon: Icon(Icons.bar_chart),
-              label: 'Archive',
+              icon: Icon(Icons.calendar_month_outlined),
+              activeIcon: Icon(Icons.calendar_month),
+              label: 'Calendar',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings_outlined),
