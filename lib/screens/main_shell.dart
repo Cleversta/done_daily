@@ -3,12 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../bloc/daily_bloc.dart';
 import '../bloc/daily_event.dart';
+import '../bloc/daily_state.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import 'daily_screen.dart';
 import 'archive_screen.dart';
+import 'summary_screen.dart';
 import 'settings_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -84,10 +86,16 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   void _onTap(int index) {
-    // Reload today's data whenever we return to the Today tab
     if (index == 0 && _currentIndex != 0) {
-      _lastLoadedDate = _todayKey();
-      context.read<DailyBloc>().add(const LoadDailyEvent());
+      final bloc = context.read<DailyBloc>();
+      final today = _todayKey();
+      // Always reload if state isn't already today's loaded daily,
+      // but skip the reload if we just updated state (e.g. added a goal from Recap)
+      // to avoid a race condition that would overwrite the new state.
+      if (bloc.state is! DailyLoaded || today != _lastLoadedDate) {
+        _lastLoadedDate = today;
+        bloc.add(const LoadDailyEvent());
+      }
     }
     setState(() => _currentIndex = index);
   }
@@ -99,6 +107,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       case 1:
         return const ArchiveScreen();
       case 2:
+        return const SummaryScreen();
+      case 3:
         return const SettingsScreen();
       default:
         return const DailyScreen();
@@ -110,6 +120,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final t = NTheme.of(context);
     return Scaffold(
       backgroundColor: t.background,
+      resizeToAvoidBottomInset: false,
       body: _buildBody(),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -132,6 +143,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               icon: Icon(Icons.calendar_month_outlined),
               activeIcon: Icon(Icons.calendar_month),
               label: 'Calendar',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.summarize_outlined),
+              activeIcon: Icon(Icons.summarize),
+              label: 'Recap',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings_outlined),

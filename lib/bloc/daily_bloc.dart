@@ -38,7 +38,11 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
     on<DismissCarryoverEvent>(_onDismissCarryover);
     on<UpdateReflectionEvent>(_onUpdateReflection);
     on<UpdateArchiveReflectionEvent>(_onUpdateArchiveReflection);
+    on<AddFocusMinutesEvent>(_onAddFocusMinutes);
+    on<UpdateTomorrowNoteEvent>(_onUpdateTomorrowNote);
     on<ToggleArchiveRestDayEvent>(_onToggleArchiveRestDay);
+    on<AddGoalForDateEvent>(_onAddGoalForDate);
+    on<UseNoteAsGoalEvent>(_onUseNoteAsGoal);
   }
 
   AppSettings get _settings => _settingsBox.get('app_settings') ?? const AppSettings();
@@ -224,6 +228,89 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
     final updated = daily.copyWith(reflection: event.text);
     await _dailyBox.put(event.dailyId, updated);
     // Don't change the current DailyLoaded state — archive edits are background saves
+  }
+
+  Future<void> _onAddFocusMinutes(AddFocusMinutesEvent event, Emitter<DailyState> emit) async {
+    final current = _currentDaily(); if (current == null) return;
+    final updated = current.copyWith(focusMinutes: current.focusMinutes + event.minutes);
+    await _save(updated);
+    emit(DailyLoaded(updated, streak: _calcStreak(DateTime.now())));
+  }
+
+  Future<void> _onUpdateTomorrowNote(UpdateTomorrowNoteEvent event, Emitter<DailyState> emit) async {
+    final current = _currentDaily(); if (current == null) return;
+    final updated = current.copyWith(tomorrowNote: event.text);
+    await _save(updated);
+    emit(DailyLoaded(updated, streak: _calcStreak(DateTime.now())));
+  }
+
+  Future<void> _onAddGoalForDate(AddGoalForDateEvent event, Emitter<DailyState> emit) async {
+    final key = _dateKey(event.date);
+    Daily? daily = _dailyBox.get(key);
+    final goal = Goal(
+      id: _uuid.v4(),
+      title: event.title.trim(),
+      createdAt: DateTime.now(),
+    );
+    if (daily == null) {
+      daily = Daily(
+        id: key,
+        date: event.date,
+        workEndHour: _settings.workEndHour,
+        workEndMinute: _settings.workEndMinute,
+        goals: [goal],
+      );
+    } else {
+      daily = daily.copyWith(goals: [...daily.goals, goal]);
+    }
+    await _dailyBox.put(key, daily);
+    // If the target date is today, refresh the loaded state
+    final today = DateTime.now();
+    final todayKey = _dateKey(DateTime(today.year, today.month, today.day));
+    if (key == todayKey) emit(DailyLoaded(daily, streak: _calcStreak(today)));
+  }
+
+  Future<void> _onUseNoteAsGoal(UseNoteAsGoalEvent event, Emitter<DailyState> emit) async {
+    final now = DateTime.now();
+    final todayKey = _dateKey(DateTime(now.year, now.month, now.day));
+    final goalKey = _dateKey(event.goalDate);
+    final goal = Goal(id: _uuid.v4(), title: event.title.trim(), createdAt: now);
+
+    if (goalKey == todayKey) {
+      // Add goal and update note atomically on today's daily
+      Daily current = _dailyBox.get(todayKey) ?? _currentDaily()!;
+      final updated = current.copyWith(
+        goals: [...current.goals, goal],
+        tomorrowNote: event.updatedNotes.isEmpty ? null : event.updatedNotes,
+      );
+      await _save(updated);
+      emit(DailyLoaded(updated, streak: _calcStreak(now)));
+    } else {
+      // Add goal to future date
+      Daily? target = _dailyBox.get(goalKey);
+      if (target == null) {
+        target = Daily(
+          id: goalKey,
+          date: event.goalDate,
+          workEndHour: _settings.workEndHour,
+          workEndMinute: _settings.workEndMinute,
+          goals: [goal],
+        );
+      } else {
+        target = target.copyWith(goals: [...target.goals, goal]);
+      }
+      await _dailyBox.put(goalKey, target);
+
+      // Update today's note
+      final current = _currentDaily();
+      if (current != null) {
+        final updated = current.copyWith(
+          tomorrowNote: event.updatedNotes.isEmpty ? null : event.updatedNotes,
+        );
+        await _save(updated);
+        emit(DailyLoaded(updated, streak: _calcStreak(now)));
+      }
+    }
   }
 
   Future<void> _onToggleArchiveRestDay(ToggleArchiveRestDayEvent event, Emitter<DailyState> emit) async {

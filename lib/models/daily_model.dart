@@ -33,6 +33,12 @@ class Daily extends Equatable {
   @HiveField(8)
   final String reflection;
 
+  @HiveField(9)
+  final int focusMinutes;
+
+  @HiveField(10)
+  final String? tomorrowNote;
+
   Daily({
     required this.id,
     required this.date,
@@ -43,6 +49,8 @@ class Daily extends Equatable {
     this.notes,
     this.workEndMinute = 0,
     this.reflection = '',
+    this.focusMinutes = 0,
+    this.tomorrowNote,
   });
 
   Daily copyWith({
@@ -55,6 +63,8 @@ class Daily extends Equatable {
     bool? windDownCompleted,
     String? notes,
     String? reflection,
+    int? focusMinutes,
+    String? tomorrowNote,
   }) {
     return Daily(
       id: id ?? this.id,
@@ -66,6 +76,8 @@ class Daily extends Equatable {
       windDownCompleted: windDownCompleted ?? this.windDownCompleted,
       notes: notes ?? this.notes,
       reflection: reflection ?? this.reflection,
+      focusMinutes: focusMinutes ?? this.focusMinutes,
+      tomorrowNote: tomorrowNote ?? this.tomorrowNote,
     );
   }
 

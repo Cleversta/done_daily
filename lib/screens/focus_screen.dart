@@ -61,6 +61,7 @@ class _FocusScreenState extends State<FocusScreen> with SingleTickerProviderStat
         HapticFeedback.heavyImpact();
         setState(() { _remainingSeconds = 0; _isRunning = false; });
         _ringController.stop();
+        context.read<DailyBloc>().add(AddFocusMinutesEvent(_selectedMinutes));
       } else {
         setState(() => _remainingSeconds--);
       }
@@ -118,6 +119,10 @@ class _FocusScreenState extends State<FocusScreen> with SingleTickerProviderStat
   void _markDone() {
     _timer?.cancel();
     HapticFeedback.mediumImpact();
+    final elapsed = ((_totalSeconds - _remainingSeconds) / 60).ceil().clamp(0, _selectedMinutes);
+    if (_phase == 1 && elapsed > 0) {
+      context.read<DailyBloc>().add(AddFocusMinutesEvent(elapsed));
+    }
     context.read<DailyBloc>().add(CompleteGoalEvent(widget.goal.id));
     context.pop();
   }

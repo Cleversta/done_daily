@@ -68,7 +68,7 @@ class _DashboardView extends StatefulWidget {
   State<_DashboardView> createState() => _DashboardViewState();
 }
 
-class _DashboardViewState extends State<_DashboardView> {
+class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObserver {
   late DateTime _now;
   Timer? _clockTimer;
 
@@ -79,13 +79,18 @@ class _DashboardViewState extends State<_DashboardView> {
     _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       setState(() => _now = DateTime.now());
     });
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _clockTimer?.cancel();
     super.dispose();
   }
+
+  @override
+  void didChangeMetrics() => setState(() {});
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +98,7 @@ class _DashboardViewState extends State<_DashboardView> {
     final daily = widget.daily;
     final streak = widget.streak;
     final state = widget.state;
+    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     final now = _now;
     var workEnd = DateTime(now.year, now.month, now.day, daily.workEndHour, daily.workEndMinute);
@@ -250,23 +256,24 @@ class _DashboardViewState extends State<_DashboardView> {
               },
             ),
 
-            // Work-ends card + Add button
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-              child: Column(
-                children: [
-                  _WorkEndCard(
-                    daily: daily,
-                    isDone: isDone,
-                    remaining: remaining,
-                    onTap: () => _pickWorkEndTime(context, daily),
-                    onWindDown: () => context.pushNamed('winddown', extra: {'daily': daily}),
-                  ),
-                  const SizedBox(height: 12),
-                  _AddGoalButton(onTap: () => _showAddSheet(context)),
-                ],
+            // Work-ends card + Add button — hidden while keyboard is open
+            if (!keyboardOpen)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                child: Column(
+                  children: [
+                    _WorkEndCard(
+                      daily: daily,
+                      isDone: isDone,
+                      remaining: remaining,
+                      onTap: () => _pickWorkEndTime(context, daily),
+                      onWindDown: () => context.pushNamed('winddown', extra: {'daily': daily}),
+                    ),
+                    const SizedBox(height: 12),
+                    _AddGoalButton(onTap: () => _showAddSheet(context)),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),

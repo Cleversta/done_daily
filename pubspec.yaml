@@ -2,7 +2,7 @@ name: done_daily
 description: "DONE:Daily - Complete your daily goals and actually rest."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -25,6 +25,7 @@ dependencies:
   # Notifications
   flutter_local_notifications: ^17.0.0
   timezone: ^0.9.4
+  flutter_timezone: ^3.0.0
   permission_handler: ^11.3.1
   
   # UI

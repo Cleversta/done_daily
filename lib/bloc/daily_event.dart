@@ -184,10 +184,41 @@ class UpdateArchiveReflectionEvent extends DailyEvent {
   List<Object?> get props => [dailyId, text];
 }
 
+class AddFocusMinutesEvent extends DailyEvent {
+  final int minutes;
+  const AddFocusMinutesEvent(this.minutes);
+  @override
+  List<Object?> get props => [minutes];
+}
+
+class UpdateTomorrowNoteEvent extends DailyEvent {
+  final String text;
+  const UpdateTomorrowNoteEvent(this.text);
+  @override
+  List<Object?> get props => [text];
+}
+
 class ToggleArchiveRestDayEvent extends DailyEvent {
   final DateTime date;
   final bool isRestDay;
   const ToggleArchiveRestDayEvent({required this.date, required this.isRestDay});
   @override
   List<Object?> get props => [date, isRestDay];
+}
+
+class AddGoalForDateEvent extends DailyEvent {
+  final DateTime date;
+  final String title;
+  const AddGoalForDateEvent({required this.date, required this.title});
+  @override
+  List<Object?> get props => [date, title];
+}
+
+class UseNoteAsGoalEvent extends DailyEvent {
+  final DateTime goalDate;
+  final String title;
+  final String updatedNotes;
+  const UseNoteAsGoalEvent({required this.goalDate, required this.title, required this.updatedNotes});
+  @override
+  List<Object?> get props => [goalDate, title, updatedNotes];
 }

@@ -1,0 +1,352 @@
+<title>Privacy Policy — DONE:Daily</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #F7F8FC;
+    --surface: #FFFFFF;
+    --text: #111827;
+    --secondary: #5A6278;
+    --tertiary: #9CA3AF;
+    --accent: #6366F1;
+    --border: #E4E6EF;
+    --chip-bg: #EEF2FF;
+    --chip-text: #4338CA;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1117;
+      --surface: #181C28;
+      --text: #F1F5F9;
+      --secondary: #94A3B8;
+      --tertiary: #64748B;
+      --accent: #818CF8;
+      --border: #252A3A;
+      --chip-bg: #1E2240;
+      --chip-text: #A5B4FC;
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #F7F8FC;
+    --surface: #FFFFFF;
+    --text: #111827;
+    --secondary: #5A6278;
+    --tertiary: #9CA3AF;
+    --accent: #6366F1;
+    --border: #E4E6EF;
+    --chip-bg: #EEF2FF;
+    --chip-text: #4338CA;
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0F1117;
+    --surface: #181C28;
+    --text: #F1F5F9;
+    --secondary: #94A3B8;
+    --tertiary: #64748B;
+    --accent: #818CF8;
+    --border: #252A3A;
+    --chip-bg: #1E2240;
+    --chip-text: #A5B4FC;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    padding: 48px 20px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    margin-bottom: 48px;
+  }
+
+  .app-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--chip-bg);
+    color: var(--chip-text);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+  }
+
+  .app-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin-bottom: 12px;
+  }
+
+  .updated {
+    font-size: 13px;
+    color: var(--tertiary);
+  }
+
+  /* Local-only badge */
+  .local-badge {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 40px;
+  }
+
+  .local-badge-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .local-badge p {
+    font-size: 13.5px;
+    color: var(--secondary);
+    line-height: 1.6;
+  }
+
+  .local-badge strong {
+    color: var(--text);
+  }
+
+  /* Sections */
+  section {
+    margin-bottom: 36px;
+  }
+
+  .section-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    font-size: 17px;
+    font-weight: 650;
+    color: var(--text);
+    line-height: 1.3;
+    text-wrap: balance;
+    margin-bottom: 10px;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    font-size: 14.5px;
+    color: var(--secondary);
+    line-height: 1.75;
+    margin-bottom: 10px;
+  }
+
+  p:last-child { margin-bottom: 0; }
+
+  ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  ul li {
+    font-size: 14.5px;
+    color: var(--secondary);
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    line-height: 1.6;
+  }
+
+  ul li::before {
+    content: "";
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    margin-top: 7px;
+  }
+
+  /* Divider */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0;
+  }
+
+  /* Contact */
+  .contact-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+
+  .contact-block p {
+    margin-bottom: 8px;
+  }
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--tertiary);
+    text-align: center;
+    line-height: 1.8;
+  }
+</style>
+
+<div class="page">
+
+  <header class="header">
+    <div class="app-label">
+      <span class="app-dot"></span>
+      DONE:Daily
+    </div>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: July 5, 2026</p>
+  </header>
+
+  <div class="local-badge">
+    <div class="local-badge-icon">🔒</div>
+    <p><strong>Your data never leaves your device.</strong> DONE:Daily stores everything locally and does not connect to the internet, send data to any server, or use any third-party analytics or tracking services.</p>
+  </div>
+
+  <section>
+    <div class="section-label">Overview</div>
+    <h2>About This App</h2>
+    <p>DONE:Daily is a personal productivity app that helps you plan daily goals, track focus time, and build a healthy wind-down routine. This Privacy Policy explains what information the app stores and how it is used.</p>
+    <p>By using DONE:Daily, you agree to the terms described in this policy.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="section-label">Data Storage</div>
+    <h2>What We Store Locally</h2>
+    <p>All data is stored on your device only, using local on-device storage. This includes:</p>
+    <ul>
+      <li>Your daily goals, notes, and reflections</li>
+      <li>Focus session durations and times</li>
+      <li>Work schedule and rest day preferences</li>
+      <li>Recurring goal templates</li>
+      <li>App settings and notification preferences</li>
+      <li>Historical goal data and streaks</li>
+    </ul>
+    <p>This data is private to your device and is never transmitted, uploaded, or shared with any external party — including us.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="section-label">Permissions</div>
+    <h2>Device Permissions We Request</h2>
+    <p>DONE:Daily requests the following Android permissions:</p>
+    <ul>
+      <li><strong>POST_NOTIFICATIONS</strong> — to send local reminders (morning, work end, weekly). All notifications are generated on-device; no notification content is sent to a server.</li>
+      <li><strong>SCHEDULE_EXACT_ALARM / USE_EXACT_ALARM</strong> — to deliver reminders at the exact times you set.</li>
+      <li><strong>RECEIVE_BOOT_COMPLETED</strong> — to reschedule your notifications after your device restarts.</li>
+      <li><strong>VIBRATE</strong> — to vibrate your device for focus timer completion alerts.</li>
+    </ul>
+    <p>The app does not request internet access, location, camera, microphone, contacts, or any other sensitive permissions.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="section-label">Third Parties</div>
+    <h2>Third-Party Services</h2>
+    <p>DONE:Daily does not use any third-party analytics, advertising networks, crash reporting services, or data brokers. There are no SDKs in this app that collect or transmit your data.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="section-label">Children</div>
+    <h2>Children's Privacy</h2>
+    <p>DONE:Daily does not collect any personal information from anyone, including children under the age of 13. Since all data remains on your device, there is no risk of children's data being transmitted or accessed by us.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="section-label">Your Data</div>
+    <h2>Data Deletion</h2>
+    <p>Because all data is stored exclusively on your device, you have full control over it at all times. To delete all app data, simply uninstall DONE:Daily from your device. This permanently removes all locally stored goals, notes, settings, and history.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="section-label">Changes</div>
+    <h2>Updates to This Policy</h2>
+    <p>If this Privacy Policy changes in a meaningful way, the updated version will be published at this URL with a revised "Last updated" date. Continued use of the app after changes are posted constitutes acceptance of the new policy.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="section-label">Contact</div>
+    <h2>Questions?</h2>
+    <div class="contact-block">
+      <p>If you have any questions about this Privacy Policy or how DONE:Daily handles data, you can reach us at:</p>
+      <p><a href="mailto:cleverstar02@gmail.com">cleverstar02@gmail.com</a></p>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <p>DONE:Daily &nbsp;·&nbsp; All data stored locally on your device &nbsp;·&nbsp; No internet access required</p>
+    <p style="margin-top: 4px;">© 2026 DONE:Daily. All rights reserved.</p>
+  </footer>
+
+</div>

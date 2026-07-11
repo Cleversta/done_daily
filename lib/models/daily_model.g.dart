@@ -26,13 +26,15 @@ class DailyAdapter extends TypeAdapter<Daily> {
       notes: fields[6] as String?,
       workEndMinute: fields[7] as int? ?? 0,
       reflection: fields[8] as String? ?? '',
+      focusMinutes: fields[9] as int? ?? 0,
+      tomorrowNote: fields[10] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Daily obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -50,7 +52,11 @@ class DailyAdapter extends TypeAdapter<Daily> {
       ..writeByte(7)
       ..write(obj.workEndMinute)
       ..writeByte(8)
-      ..write(obj.reflection);
+      ..write(obj.reflection)
+      ..writeByte(9)
+      ..write(obj.focusMinutes)
+      ..writeByte(10)
+      ..write(obj.tomorrowNote);
   }
 
   @override

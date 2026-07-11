@@ -114,7 +114,9 @@ class _WindDownScreenState extends State<WindDownScreen>
     final t = NTheme.of(context);
     return Scaffold(
       backgroundColor: t.background,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
+        bottom: false,
         child: _phase == 0 ? _buildTimerPhase(t) : _buildNotesPhase(t),
       ),
     );
@@ -312,11 +314,9 @@ class _WindDownScreenState extends State<WindDownScreen>
   }
 
   Widget _buildNotesPhase(NTheme t) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 24, right: 24, top: 28,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(24, 28, 24, bottomInset + 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -341,24 +341,22 @@ class _WindDownScreenState extends State<WindDownScreen>
           const SizedBox(height: 28),
           Text('Reflection (optional)', style: Theme.of(context).textTheme.labelLarge),
           const SizedBox(height: 8),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: t.surface,
-                borderRadius: BorderRadius.circular(AppRadii.large),
-                boxShadow: t.insetShadow,
-              ),
-              child: TextField(
-                controller: _notesController,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: 'How was your day? What went well?',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(14),
-                ),
+          Container(
+            constraints: const BoxConstraints(minHeight: 120),
+            decoration: BoxDecoration(
+              color: t.surface,
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              boxShadow: t.insetShadow,
+            ),
+            child: TextField(
+              controller: _notesController,
+              maxLines: null,
+              textAlignVertical: TextAlignVertical.top,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                hintText: 'How was your day? What went well?',
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(14),
               ),
             ),
           ),
