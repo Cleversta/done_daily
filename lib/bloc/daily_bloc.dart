@@ -239,7 +239,9 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
 
   Future<void> _onUpdateTomorrowNote(UpdateTomorrowNoteEvent event, Emitter<DailyState> emit) async {
     final current = _currentDaily(); if (current == null) return;
-    final updated = current.copyWith(tomorrowNote: event.text);
+    final updated = event.text.trim().isEmpty
+        ? current.copyWith(clearTomorrowNote: true)
+        : current.copyWith(tomorrowNote: event.text);
     await _save(updated);
     emit(DailyLoaded(updated, streak: _calcStreak(DateTime.now())));
   }
@@ -282,6 +284,7 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
       final updated = current.copyWith(
         goals: [...current.goals, goal],
         tomorrowNote: event.updatedNotes.isEmpty ? null : event.updatedNotes,
+        clearTomorrowNote: event.updatedNotes.isEmpty,
       );
       await _save(updated);
       emit(DailyLoaded(updated, streak: _calcStreak(now)));
@@ -306,6 +309,7 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
       if (current != null) {
         final updated = current.copyWith(
           tomorrowNote: event.updatedNotes.isEmpty ? null : event.updatedNotes,
+          clearTomorrowNote: event.updatedNotes.isEmpty,
         );
         await _save(updated);
         emit(DailyLoaded(updated, streak: _calcStreak(now)));
@@ -428,7 +432,7 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
       isRestDay: settings.restDays.contains(today.weekday),
     );
     await _dailyBox.put(key, fresh);
-    emit(DailyLoaded(fresh, streak: 0));
+    emit(DailyLoaded(fresh, streak: _calcStreak(today)));
   }
 
   // ── Recurring goal handlers ───────────────────────────────────────────────
