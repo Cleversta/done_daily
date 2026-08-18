@@ -121,6 +121,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         t: t,
                       ),
                     ],
+
+                    // ── This week (honest truth) ───────────────────────
+                    const SizedBox(height: 24),
+                    _SectionLabel('THIS WEEK'),
+                    const SizedBox(height: 10),
+                    _WeekTruthCard(
+                      truth: context.read<DailyBloc>().weekTruth(days: 7),
+                      t: t,
+                    ),
                   ],
                 );
               },
@@ -704,6 +713,99 @@ class _TomorrowNoteCardState extends State<_TomorrowNoteCard> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Honest weekly truth ──────────────────────────────────────────────────────
+
+class _WeekTruthCard extends StatelessWidget {
+  final WeekTruth truth;
+  final NTheme t;
+  const _WeekTruthCard({required this.truth, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = (truth.completionRatio * 100).round();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(AppRadii.large),
+        boxShadow: t.boxShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Last 7 days — no spin, just the numbers',
+            style: TextStyle(fontSize: 12, color: t.textSecondary),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _Stat(
+                value: '${truth.finishedDays}',
+                label: 'days honored',
+                t: t,
+              ),
+              _Stat(
+                value: truth.focusLabel,
+                label: 'focus',
+                t: t,
+              ),
+              _Stat(
+                value: truth.goalsPlanned == 0 ? '—' : '$pct%',
+                label: 'goals done',
+                t: t,
+              ),
+              _Stat(
+                value: '${truth.restDays}',
+                label: 'rest days',
+                t: t,
+              ),
+            ],
+          ),
+          if (truth.trackedDays == 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              'No days logged yet this week. Finish today and it starts here.',
+              style: TextStyle(fontSize: 13, color: t.textTertiary, height: 1.35),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  final String value;
+  final String label;
+  final NTheme t;
+  const _Stat({required this.value, required this.label, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: t.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 10, color: t.textTertiary, fontWeight: FontWeight.w600),
           ),
         ],
       ),

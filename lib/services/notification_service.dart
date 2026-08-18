@@ -16,6 +16,7 @@ class NotificationService {
   static const _workEndId = 1;
   static const _morningId = 2;
   static const _weeklyId = 3;
+  static const _wrapUpId = 4;
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -153,16 +154,20 @@ class NotificationService {
       scheduled = scheduled.add(const Duration(days: 1));
     }
 
+    final body = reminder.hasEnd
+        ? 'Break until ${reminder.windowDisplay.split(' – ').last}. Step away and rest.'
+        : 'Time for a break — from DONE:Daily.';
+
     await _plugin.zonedSchedule(
       reminder.id,
       reminder.label,
-      'Reminder from DONE:Daily.',
+      body,
       scheduled,
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'custom_reminder_v1',
-          'Custom Reminders',
-          channelDescription: 'Your own reminders during the day',
+          'Breaks & reminders',
+          channelDescription: 'Your break windows and custom reminders during the day',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
           sound: RawResourceAndroidNotificationSound('notisong'),
@@ -199,6 +204,48 @@ class NotificationService {
     return await Permission.notification.isGranted;
   }
 
+  /// Fires [minutesBefore] before work end so the user can wrap up in time.
+  Future<void> scheduleWrapUpNotification({
+    required int workEndHour,
+    required int workEndMinute,
+    required int minutesBefore,
+  }) async {
+    await _plugin.cancel(_wrapUpId);
+    if (minutesBefore <= 0) return;
+
+    final endTotal = workEndHour * 60 + workEndMinute - minutesBefore;
+    final normalized = ((endTotal % (24 * 60)) + (24 * 60)) % (24 * 60);
+    final hour = normalized ~/ 60;
+    final minute = normalized % 60;
+
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
+    await _plugin.zonedSchedule(
+      _wrapUpId,
+      'Wrap up soon',
+      'About $minutesBefore minutes until work ends. Finish strong, then rest.',
+      scheduled,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'wrap_up_v1',
+          'Wrap-up reminder',
+          channelDescription: 'Heads-up before work end so you can close the day on time',
+          importance: Importance.high,
+          priority: Priority.high,
+          sound: RawResourceAndroidNotificationSound('notisong'),
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
   // Re-schedules or cancels all notifications to match current settings.
   // Call on app startup (handles reboot clearing scheduled notifications) and on any settings change.
   Future<void> syncNotifications({
@@ -213,6 +260,8 @@ class NotificationService {
     int weeklyHour = 20,
     int weeklyMinute = 0,
     List<CustomReminder> customReminders = const [],
+    bool wrapUpEnabled = true,
+    int wrapUpMinutesBefore = 15,
   }) async {
     if (!enabled) {
       await cancelAll();
@@ -222,6 +271,15 @@ class NotificationService {
       await scheduleWorkEndNotification(workEndHour, workEndMinute);
     } else {
       await cancelWorkEnd();
+    }
+    if (workEndEnabled && wrapUpEnabled && wrapUpMinutesBefore > 0) {
+      await scheduleWrapUpNotification(
+        workEndHour: workEndHour,
+        workEndMinute: workEndMinute,
+        minutesBefore: wrapUpMinutesBefore,
+      );
+    } else {
+      await cancelWrapUp();
     }
     if (morningEnabled) {
       await scheduleMorningReminder(morningHour, morningMinute);
@@ -239,5 +297,7 @@ class NotificationService {
   Future<void> cancelWorkEnd() => _plugin.cancel(_workEndId);
   Future<void> cancelMorning() => _plugin.cancel(_morningId);
   Future<void> cancelWeekly() => _plugin.cancel(_weeklyId);
+  Future<void> cancelWrapUp() => _plugin.cancel(_wrapUpId);
   Future<void> cancelAll() => _plugin.cancelAll();
 }
+

@@ -2,7 +2,7 @@ name: done_daily
 description: "DONE:Daily - Complete your daily goals and actually rest."
 publish_to: 'none'
 
-version: 1.0.4+6
+version: 1.0.6+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -44,6 +44,9 @@ dependencies:
 
   # File picker (for backup restore)
   file_picker: ^8.0.0
+
+  # Home-screen widget (Android; iOS needs additional setup)
+  home_widget: ^0.7.0
 
 dev_dependencies:
   flutter_test:

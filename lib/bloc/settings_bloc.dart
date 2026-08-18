@@ -42,6 +42,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
           weeklyHour: settings.weeklyReminderHour,
           weeklyMinute: settings.weeklyReminderMinute,
           customReminders: settings.customReminders,
+          wrapUpEnabled: settings.wrapUpEnabled,
+          wrapUpMinutesBefore: settings.wrapUpMinutesBefore,
         );
       } else {
         // Permission was revoked in device Settings — mirror that in app state.

@@ -103,3 +103,35 @@ class DailyError extends DailyState {
   @override
   List<Object?> get props => [message];
 }
+
+/// Plain data for an honest weekly (or N-day) recap — not a bloc state.
+class WeekTruth {
+  final List<Daily> days;
+  final int finishedDays;
+  final int trackedDays;
+  final int restDays;
+  final int focusMinutes;
+  final int goalsCompleted;
+  final int goalsPlanned;
+
+  const WeekTruth({
+    required this.days,
+    required this.finishedDays,
+    required this.trackedDays,
+    required this.restDays,
+    required this.focusMinutes,
+    required this.goalsCompleted,
+    required this.goalsPlanned,
+  });
+
+  double get completionRatio =>
+      goalsPlanned == 0 ? 0 : goalsCompleted / goalsPlanned;
+
+  String get focusLabel {
+    final h = focusMinutes ~/ 60;
+    final m = focusMinutes % 60;
+    if (h <= 0) return '${m}m';
+    return '${h}h ${m}m';
+  }
+}
+

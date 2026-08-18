@@ -27,7 +27,7 @@ class BackupService {
 
     final data = {
       'exportedAt': DateTime.now().toIso8601String(),
-      'version': 1,
+      'version': 2,
       'settings': _settingsToJson(settingsBox.get('app_settings')),
       'recurringGoals': recurringBox.values.map(_recurringToJson).toList(),
       'days': dailyBox.values.map(_dailyToJson).toList(),
@@ -46,6 +46,7 @@ class BackupService {
   }
 
   /// Returns number of days restored, or -1 if user cancelled, or throws on error.
+  /// Replaces existing data (clear + restore) so re-import does not create duplicates.
   Future<int> importData() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -63,6 +64,10 @@ class BackupService {
     final dailyBox = await Hive.openBox<Daily>('daily');
     final recurringBox = await Hive.openBox<RecurringGoal>('recurring_goals');
     final settingsBox = await Hive.openBox<AppSettings>('settings');
+
+    // Full replace so re-importing the same backup never duplicates recurring goals
+    await dailyBox.clear();
+    await recurringBox.clear();
 
     // Restore settings
     final settingsJson = data['settings'] as Map<String, dynamic>?;
@@ -82,23 +87,29 @@ class BackupService {
       await recurringBox.put(goal.id, goal);
     }
 
-    // Restore daily records
+    // Restore daily records (backward-compatible with version 1 backups)
     final daysList = data['days'] as List<dynamic>? ?? [];
     for (final d in daysList) {
-      final goalsList = (d['goals'] as List<dynamic>? ?? []).map((g) => Goal(
-        id: g['id'] as String? ?? _uuid.v4(),
-        title: g['title'] as String? ?? '',
-        isCompleted: g['isCompleted'] as bool? ?? false,
-        isPriority: g['isPriority'] as bool? ?? false,
-        recurringTemplateId: g['recurringTemplateId'] as String?,
-        createdAt: DateTime.tryParse(g['createdAt'] as String? ?? '') ?? DateTime.now(),
-      )).toList();
+      final goalsList = (d['goals'] as List<dynamic>? ?? []).map((g) {
+        final completedAtRaw = g['completedAt'] as String?;
+        return Goal(
+          id: g['id'] as String? ?? _uuid.v4(),
+          title: g['title'] as String? ?? '',
+          isCompleted: g['isCompleted'] as bool? ?? false,
+          isPriority: g['isPriority'] as bool? ?? false,
+          recurringTemplateId: g['recurringTemplateId'] as String?,
+          createdAt: DateTime.tryParse(g['createdAt'] as String? ?? '') ?? DateTime.now(),
+          completedAt: completedAtRaw != null ? DateTime.tryParse(completedAtRaw) : null,
+        );
+      }).toList();
 
       final date = DateTime.parse(d['date'] as String);
       final daily = Daily(
         id: d['id'] as String? ?? _dateKey(date),
         date: date,
         goals: goalsList,
+        workEndHour: d['workEndHour'] as int? ?? 18,
+        workEndMinute: d['workEndMinute'] as int? ?? 0,
         isRestDay: d['isRestDay'] as bool? ?? false,
         reflection: d['reflection'] as String? ?? '',
         focusMinutes: d['focusMinutes'] as int? ?? 0,
@@ -117,6 +128,8 @@ class BackupService {
     return {
       'workEndHour': s.workEndHour,
       'workEndMinute': s.workEndMinute,
+      'workStartHour': s.workStartHour,
+      'workStartMinute': s.workStartMinute,
       'restDays': s.restDays,
       'notificationsEnabled': s.notificationsEnabled,
       'isDarkMode': s.isDarkMode,
@@ -128,6 +141,8 @@ class BackupService {
       'weeklyReminderHour': s.weeklyReminderHour,
       'weeklyReminderMinute': s.weeklyReminderMinute,
       'hasSeenOnboarding': s.hasSeenOnboarding,
+      'wrapUpEnabled': s.wrapUpEnabled,
+      'wrapUpMinutesBefore': s.wrapUpMinutesBefore,
       'customReminders': s.customReminders.map((r) => r.toJson()).toList(),
     };
   }
@@ -137,6 +152,8 @@ class BackupService {
     return AppSettings(
       workEndHour: j['workEndHour'] as int? ?? defaults.workEndHour,
       workEndMinute: j['workEndMinute'] as int? ?? defaults.workEndMinute,
+      workStartHour: j['workStartHour'] as int? ?? defaults.workStartHour,
+      workStartMinute: j['workStartMinute'] as int? ?? defaults.workStartMinute,
       restDays: (j['restDays'] as List<dynamic>?)?.cast<int>() ?? defaults.restDays,
       notificationsEnabled: j['notificationsEnabled'] as bool? ?? defaults.notificationsEnabled,
       isDarkMode: j['isDarkMode'] as bool? ?? defaults.isDarkMode,
@@ -148,6 +165,8 @@ class BackupService {
       weeklyReminderHour: j['weeklyReminderHour'] as int? ?? defaults.weeklyReminderHour,
       weeklyReminderMinute: j['weeklyReminderMinute'] as int? ?? defaults.weeklyReminderMinute,
       hasSeenOnboarding: j['hasSeenOnboarding'] as bool? ?? defaults.hasSeenOnboarding,
+      wrapUpEnabled: j['wrapUpEnabled'] as bool? ?? defaults.wrapUpEnabled,
+      wrapUpMinutesBefore: j['wrapUpMinutesBefore'] as int? ?? defaults.wrapUpMinutesBefore,
       customReminders: _remindersFromJson(j['customReminders'] as List<dynamic>?),
     );
   }
@@ -175,6 +194,8 @@ class BackupService {
   Map<String, dynamic> _dailyToJson(Daily d) => {
     'id': d.id,
     'date': d.date.toIso8601String(),
+    'workEndHour': d.workEndHour,
+    'workEndMinute': d.workEndMinute,
     'isRestDay': d.isRestDay,
     'reflection': d.reflection,
     'focusMinutes': d.focusMinutes,
@@ -188,6 +209,7 @@ class BackupService {
       'isPriority': g.isPriority,
       'recurringTemplateId': g.recurringTemplateId,
       'createdAt': g.createdAt.toIso8601String(),
+      if (g.completedAt != null) 'completedAt': g.completedAt!.toIso8601String(),
     }).toList(),
   };
 }

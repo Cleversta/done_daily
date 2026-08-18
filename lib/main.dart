@@ -19,9 +19,11 @@ import 'screens/splash_screen.dart';
 import 'screens/goal_complete_screen.dart';
 import 'screens/wind_down_screen.dart';
 import 'screens/focus_screen.dart';
+import 'services/glance_service.dart';
 import 'services/notification_service.dart';
 import 'services/support_card_service.dart';
 import 'theme/app_theme.dart';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -155,21 +157,50 @@ class _GoalCompletionListener extends StatelessWidget {
 
   const _GoalCompletionListener({required this.router, required this.child});
 
+  void _refreshWidget(BuildContext context) {
+    final dailyState = context.read<DailyBloc>().state;
+    final settings = context.read<SettingsBloc>().current;
+    Daily? daily;
+    if (dailyState is DailyLoaded) {
+      daily = dailyState.daily;
+    } else if (dailyState is GoalCompleted) {
+      daily = dailyState.daily;
+    } else if (dailyState is RestDayActive) {
+      daily = dailyState.daily;
+    }
+    GlanceService.instance.update(daily: daily, settings: settings);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocListener<DailyBloc, DailyState>(
-      listener: (context, state) {
-        if (state is GoalCompleted) {
-          final goal = state.daily.goals
-              .where((g) => g.id == state.completedGoalId)
-              .firstOrNull;
-          if (goal == null) return;
-          router.pushNamed('complete', extra: {
-            'daily': state.daily,
-            'completedGoalTitle': goal.title,
-          });
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<DailyBloc, DailyState>(
+          listener: (context, state) {
+            if (state is GoalCompleted) {
+              final goal = state.daily.goals
+                  .where((g) => g.id == state.completedGoalId)
+                  .firstOrNull;
+              if (goal != null) {
+                router.pushNamed('complete', extra: {
+                  'daily': state.daily,
+                  'completedGoalTitle': goal.title,
+                });
+              }
+            }
+            if (state is DailyLoaded ||
+                state is GoalCompleted ||
+                state is RestDayActive) {
+              _refreshWidget(context);
+            }
+          },
+        ),
+        BlocListener<SettingsBloc, SettingsState>(
+          listener: (context, state) {
+            if (state is SettingsLoaded) _refreshWidget(context);
+          },
+        ),
+      ],
       child: child,
     );
   }

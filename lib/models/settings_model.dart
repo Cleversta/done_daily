@@ -44,9 +44,23 @@ class AppSettings {
   @HiveField(12)
   final bool hasSeenOnboarding;
 
-  /// User-defined reminders that sit between the morning and work-end ones.
+  /// Break windows between work start and work end.
   @HiveField(13)
   final List<CustomReminder> customReminders;
+
+  /// Start of the working day (day frame).
+  @HiveField(14)
+  final int workStartHour;
+
+  @HiveField(15)
+  final int workStartMinute;
+
+  /// Notify this many minutes before work end (“wrap up soon”).
+  @HiveField(16)
+  final bool wrapUpEnabled;
+
+  @HiveField(17)
+  final int wrapUpMinutesBefore;
 
   const AppSettings({
     this.workEndHour = 18,
@@ -63,6 +77,10 @@ class AppSettings {
     this.weeklyReminderMinute = 0,
     this.hasSeenOnboarding = false,
     this.customReminders = const [],
+    this.workStartHour = 9,
+    this.workStartMinute = 0,
+    this.wrapUpEnabled = true,
+    this.wrapUpMinutesBefore = 15,
   });
 
   AppSettings copyWith({
@@ -80,6 +98,10 @@ class AppSettings {
     int? weeklyReminderMinute,
     bool? hasSeenOnboarding,
     List<CustomReminder>? customReminders,
+    int? workStartHour,
+    int? workStartMinute,
+    bool? wrapUpEnabled,
+    int? wrapUpMinutesBefore,
   }) {
     return AppSettings(
       workEndHour: workEndHour ?? this.workEndHour,
@@ -96,30 +118,34 @@ class AppSettings {
       weeklyReminderMinute: weeklyReminderMinute ?? this.weeklyReminderMinute,
       hasSeenOnboarding: hasSeenOnboarding ?? this.hasSeenOnboarding,
       customReminders: customReminders ?? this.customReminders,
+      workStartHour: workStartHour ?? this.workStartHour,
+      workStartMinute: workStartMinute ?? this.workStartMinute,
+      wrapUpEnabled: wrapUpEnabled ?? this.wrapUpEnabled,
+      wrapUpMinutesBefore: wrapUpMinutesBefore ?? this.wrapUpMinutesBefore,
     );
   }
 
-  String get workEndDisplay {
-    final h = workEndHour;
-    final m = workEndMinute;
+  static String _fmt(int h, int m) {
     final period = h >= 12 ? 'PM' : 'AM';
     final display = h == 0 ? 12 : (h > 12 ? h - 12 : h);
     return '$display:${m.toString().padLeft(2, '0')} $period';
   }
 
-  String get morningReminderDisplay {
-    final h = morningReminderHour;
-    final m = morningReminderMinute;
-    final period = h >= 12 ? 'PM' : 'AM';
-    final display = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-    return '$display:${m.toString().padLeft(2, '0')} $period';
-  }
+  String get workEndDisplay => _fmt(workEndHour, workEndMinute);
+  String get workStartDisplay => _fmt(workStartHour, workStartMinute);
+  String get morningReminderDisplay => _fmt(morningReminderHour, morningReminderMinute);
+  String get weeklyReminderDisplay => _fmt(weeklyReminderHour, weeklyReminderMinute);
 
-  String get weeklyReminderDisplay {
-    final h = weeklyReminderHour;
-    final m = weeklyReminderMinute;
-    final period = h >= 12 ? 'PM' : 'AM';
-    final display = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-    return '$display:${m.toString().padLeft(2, '0')} $period';
+  int get workStartMinutes => workStartHour * 60 + workStartMinute;
+  int get workEndMinutes => workEndHour * 60 + workEndMinute;
+
+  /// Human label for the day frame, e.g. "9:00 AM – 6:00 PM".
+  String get workWindowDisplay => '$workStartDisplay – $workEndDisplay';
+
+  String get wrapUpDisplay {
+    final total = workEndMinutes - wrapUpMinutesBefore;
+    final h = ((total % (24 * 60)) + (24 * 60)) % (24 * 60) ~/ 60;
+    final m = ((total % (24 * 60)) + (24 * 60)) % (24 * 60) % 60;
+    return '${_fmt(h, m)} ($wrapUpMinutesBefore min before end)';
   }
 }

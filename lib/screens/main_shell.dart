@@ -82,6 +82,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       weeklyEnabled: updated.weeklyReminderEnabled,
       weeklyHour: updated.weeklyReminderHour,
       weeklyMinute: updated.weeklyReminderMinute,
+      customReminders: updated.customReminders,
+      wrapUpEnabled: updated.wrapUpEnabled,
+      wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
     );
   }
 

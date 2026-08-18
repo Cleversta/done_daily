@@ -199,13 +199,27 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
   }
 
   Future<void> _onSetWorkEndTime(SetWorkEndTimeEvent event, Emitter<DailyState> emit) async {
-    final current = _currentDaily(); if (current == null) return;
-    final updated = current.copyWith(workEndHour: event.hour, workEndMinute: event.minute);
-    await _save(updated);
     // Keep settings in sync so other days default to the new time
     final updatedSettings = _settings.copyWith(workEndHour: event.hour, workEndMinute: event.minute);
     await _settingsBox.put('app_settings', updatedSettings);
-    emit(DailyLoaded(updated, streak: _calcStreak(DateTime.now())));
+
+    // Prefer in-memory daily; fall back to today's box entry when state is archive/recap/etc.
+    final todayKey = _dateKey(DateTime.now());
+    Daily? current = _currentDaily();
+    if (current == null || current.id != todayKey) {
+      current = _dailyBox.get(todayKey);
+    }
+    if (current == null) return;
+
+    final updated = current.copyWith(workEndHour: event.hour, workEndMinute: event.minute);
+    await _save(updated);
+
+    // Only emit DailyLoaded when we were already showing today — avoid yanking the user
+    // out of archive/recap views.
+    final s = state;
+    if (s is DailyLoaded || s is GoalCompleted || s is RestDayActive || s is WorkTimeReached) {
+      emit(DailyLoaded(updated, streak: _calcStreak(DateTime.now())));
+    }
   }
 
   Future<void> _onUpdateNotes(UpdateDailyNotesEvent event, Emitter<DailyState> emit) async {
@@ -494,6 +508,46 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
     emit(DailyLoaded(current, streak: _calcStreak(DateTime.now())));
   }
 
+  /// Snapshot of the last [days] calendar days for honest weekly recap.
+  /// Does not change bloc state.
+  WeekTruth weekTruth({int days = 7}) {
+    final today = DateTime.now();
+    final list = <Daily>[];
+    int finished = 0;
+    int focus = 0;
+    int goalsDone = 0;
+    int goalsTotal = 0;
+    int rest = 0;
+
+    for (int i = days - 1; i >= 0; i--) {
+      final d = DateTime(today.year, today.month, today.day).subtract(Duration(days: i));
+      final daily = _dailyBox.get(_dateKey(d));
+      if (daily == null) continue;
+      list.add(daily);
+      focus += daily.focusMinutes;
+      if (daily.isRestDay) {
+        rest++;
+        finished++;
+        continue;
+      }
+      goalsDone += daily.completedGoalsCount;
+      goalsTotal += daily.totalGoalsCount;
+      if (daily.completedGoalsCount > 0 || daily.windDownCompleted) {
+        finished++;
+      }
+    }
+
+    return WeekTruth(
+      days: list,
+      finishedDays: finished,
+      trackedDays: list.length,
+      restDays: rest,
+      focusMinutes: focus,
+      goalsCompleted: goalsDone,
+      goalsPlanned: goalsTotal,
+    );
+  }
+
   // ── Public habit streak calculator ───────────────────────────────────────
 
   /// Returns the number of consecutive completed days for a recurring habit
@@ -545,6 +599,8 @@ class DailyBloc extends Bloc<DailyEvent, DailyState> {
     final s = state;
     if (s is DailyLoaded) return s.daily;
     if (s is GoalCompleted) return s.daily;
+    if (s is RestDayActive) return s.daily;
+    if (s is WorkTimeReached) return s.daily;
     return null;
   }
 

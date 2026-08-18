@@ -13,10 +13,11 @@ import '../models/settings_model.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../services/backup_service.dart';
+import '../widgets/break_sheet.dart';
 
-// TODO: replace these with real Play Store links after publishing
-const _playStoreUrl = 'https://play.google.com/store/apps/details?id=com.example.done_daily';
-const _playStoreRateUrl = 'https://play.google.com/store/apps/details?id=com.example.done_daily&reviewId=0';
+// Play Store links (package id matches applicationId in app/build.gradle.kts)
+const _playStoreUrl = 'https://play.google.com/store/apps/details?id=com.cleversta.done_daily';
+const _playStoreRateUrl = 'https://play.google.com/store/apps/details?id=com.cleversta.done_daily&reviewId=0';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -132,12 +133,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       weeklyHour: updated.weeklyReminderHour,
       weeklyMinute: updated.weeklyReminderMinute,
       customReminders: updated.customReminders,
+      wrapUpEnabled: updated.wrapUpEnabled,
+      wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
     );
   }
 
   Future<void> _disableNotifications(AppSettings settings) async {
     _update(settings.copyWith(notificationsEnabled: false));
     await NotificationService.instance.cancelAll();
+  }
+
+  Future<void> _pickWorkStartTime(AppSettings settings) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: settings.workStartHour, minute: settings.workStartMinute),
+      builder: (ctx, child) => _timepickerTheme(ctx, child),
+    );
+    if (picked == null || !mounted) return;
+    _update(settings.copyWith(workStartHour: picked.hour, workStartMinute: picked.minute));
   }
 
   Future<void> _pickWorkEndTime(AppSettings settings) async {
@@ -150,8 +163,97 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final updated = settings.copyWith(workEndHour: picked.hour, workEndMinute: picked.minute);
     _update(updated);
     context.read<DailyBloc>().add(SetWorkEndTimeEvent(hour: picked.hour, minute: picked.minute));
-    if (settings.notificationsEnabled && settings.workEndNotificationEnabled) {
-      await NotificationService.instance.scheduleWorkEndNotification(picked.hour, picked.minute);
+    if (settings.notificationsEnabled) {
+      await NotificationService.instance.syncNotifications(
+        enabled: true,
+        workEndEnabled: updated.workEndNotificationEnabled,
+        workEndHour: updated.workEndHour,
+        workEndMinute: updated.workEndMinute,
+        morningEnabled: updated.morningReminderEnabled,
+        morningHour: updated.morningReminderHour,
+        morningMinute: updated.morningReminderMinute,
+        weeklyEnabled: updated.weeklyReminderEnabled,
+        weeklyHour: updated.weeklyReminderHour,
+        weeklyMinute: updated.weeklyReminderMinute,
+        customReminders: updated.customReminders,
+        wrapUpEnabled: updated.wrapUpEnabled,
+        wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
+      );
+    }
+  }
+
+  Future<void> _toggleWrapUp(AppSettings settings, bool value) async {
+    final updated = settings.copyWith(wrapUpEnabled: value);
+    _update(updated);
+    if (settings.notificationsEnabled) {
+      await NotificationService.instance.syncNotifications(
+        enabled: true,
+        workEndEnabled: updated.workEndNotificationEnabled,
+        workEndHour: updated.workEndHour,
+        workEndMinute: updated.workEndMinute,
+        morningEnabled: updated.morningReminderEnabled,
+        morningHour: updated.morningReminderHour,
+        morningMinute: updated.morningReminderMinute,
+        weeklyEnabled: updated.weeklyReminderEnabled,
+        weeklyHour: updated.weeklyReminderHour,
+        weeklyMinute: updated.weeklyReminderMinute,
+        customReminders: updated.customReminders,
+        wrapUpEnabled: updated.wrapUpEnabled,
+        wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
+      );
+    }
+  }
+
+  Future<void> _pickWrapUpMinutes(AppSettings settings) async {
+    final choices = [10, 15, 20, 30, 45, 60];
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: NTheme.of(context).background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final t = NTheme.of(ctx);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Text('Warn me before work end', style: Theme.of(ctx).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              for (final m in choices)
+                ListTile(
+                  title: Text('$m minutes before'),
+                  trailing: settings.wrapUpMinutesBefore == m
+                      ? Icon(Icons.check_rounded, color: t.accent)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, m),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked == null || !mounted) return;
+    final updated = settings.copyWith(wrapUpMinutesBefore: picked);
+    _update(updated);
+    if (settings.notificationsEnabled) {
+      await NotificationService.instance.syncNotifications(
+        enabled: true,
+        workEndEnabled: updated.workEndNotificationEnabled,
+        workEndHour: updated.workEndHour,
+        workEndMinute: updated.workEndMinute,
+        morningEnabled: updated.morningReminderEnabled,
+        morningHour: updated.morningReminderHour,
+        morningMinute: updated.morningReminderMinute,
+        weeklyEnabled: updated.weeklyReminderEnabled,
+        weeklyHour: updated.weeklyReminderHour,
+        weeklyMinute: updated.weeklyReminderMinute,
+        customReminders: updated.customReminders,
+        wrapUpEnabled: updated.wrapUpEnabled,
+        wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
+      );
     }
   }
 
@@ -233,26 +335,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _addCustomReminder(AppSettings settings) async {
-    final result = await _showReminderDialog();
-    if (result == null) return;
-    final reminder = CustomReminder(
-      id: CustomReminder.nextId(settings.customReminders),
-      label: result.label,
-      hour: result.time.hour,
-      minute: result.time.minute,
-    );
-    await _saveReminders(settings, [...settings.customReminders, reminder]);
+    await BreakSheet.show(context);
   }
 
   Future<void> _editCustomReminder(AppSettings settings, CustomReminder reminder) async {
-    final result = await _showReminderDialog(existing: reminder);
-    if (result == null) return;
-    final updated = settings.customReminders
-        .map((r) => r.id == reminder.id
-            ? r.copyWith(label: result.label, hour: result.time.hour, minute: result.time.minute)
-            : r)
-        .toList();
-    await _saveReminders(settings, updated);
+    await BreakSheet.show(context, existing: reminder);
   }
 
   Future<void> _toggleCustomReminder(AppSettings settings, CustomReminder reminder, bool value) async {
@@ -266,91 +353,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final updated = settings.customReminders.where((r) => r.id != reminder.id).toList();
     _update(settings.copyWith(customReminders: updated));
     await NotificationService.instance.cancelCustomReminder(reminder.id);
-  }
-
-  // Label + time editor shared by add and edit.
-  Future<({String label, TimeOfDay time})?> _showReminderDialog({CustomReminder? existing}) async {
-    final controller = TextEditingController(text: existing?.label ?? '');
-    var time = existing == null
-        ? const TimeOfDay(hour: 13, minute: 0)
-        : TimeOfDay(hour: existing.hour, minute: existing.minute);
-
-    final result = await showDialog<({String label, TimeOfDay time})>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (dialogContext, setDialogState) {
-            final t = NTheme.of(dialogContext);
-            return AlertDialog(
-              backgroundColor: t.background,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.large)),
-              title: Text(existing == null ? 'New reminder' : 'Edit reminder'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(
-                      hintText: 'Label (e.g. Lunch break)',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () async {
-                      final picked = await showTimePicker(
-                        context: dialogContext,
-                        initialTime: time,
-                        builder: (ctx, child) => _timepickerTheme(ctx, child),
-                      );
-                      if (picked != null) setDialogState(() => time = picked);
-                    },
-                    child: Row(
-                      children: [
-                        Icon(Icons.access_time_outlined, size: 20, color: t.textSecondary),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Time',
-                            style: Theme.of(dialogContext).textTheme.bodyMedium,
-                          ),
-                        ),
-                        Text(
-                          time.format(dialogContext),
-                          style: Theme.of(dialogContext)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(color: t.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancel'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    final label = controller.text.trim();
-                    if (label.isEmpty) return;
-                    Navigator.of(dialogContext).pop((label: label, time: time));
-                  },
-                  child: Text(existing == null ? 'Add' : 'Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    controller.dispose();
-    return result;
   }
 
   Widget _timepickerTheme(BuildContext context, Widget? child) {
@@ -572,6 +574,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 const SizedBox(height: 24),
 
+                // ── Work day frame ─────────────────────────────────────
+                _SectionLabel('YOUR WORK DAY'),
+                const SizedBox(height: 10),
+                _Card(
+                  child: Column(
+                    children: [
+                      _SettingRow(
+                        icon: Icons.play_arrow_rounded,
+                        label: 'Work start',
+                        value: settings.workStartDisplay,
+                        onTap: () => _pickWorkStartTime(settings),
+                      ),
+                      const _Divider(),
+                      _SettingRow(
+                        icon: Icons.flag_rounded,
+                        label: 'Work end',
+                        value: settings.workEndDisplay,
+                        onTap: () => _pickWorkEndTime(settings),
+                      ),
+                      const _Divider(),
+                      _SwitchRow(
+                        icon: Icons.hourglass_bottom_rounded,
+                        label: 'Wrap-up reminder',
+                        subtitle: settings.wrapUpEnabled
+                            ? '${settings.wrapUpMinutesBefore} min before work end'
+                            : 'Off — no early warning',
+                        value: settings.wrapUpEnabled,
+                        onChanged: (v) => _toggleWrapUp(settings, v),
+                      ),
+                      if (settings.wrapUpEnabled) ...[
+                        const _Divider(),
+                        _SettingRow(
+                          icon: Icons.timer_outlined,
+                          label: 'Warn me',
+                          value: '${settings.wrapUpMinutesBefore} minutes before',
+                          onTap: () => _pickWrapUpMinutes(settings),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
                 // ── Notifications ──────────────────────────────────────
                 _SectionLabel('NOTIFICATIONS'),
                 const SizedBox(height: 10),
@@ -661,7 +707,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ],
 
-                        // Custom reminders between morning and work end
+                        // Break windows between morning and work end
                         for (final reminder in _sortedReminders(settings)) ...[
                           const _Divider(),
                           _CustomReminderRow(
@@ -674,8 +720,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                         const _Divider(),
                         _SettingRow(
-                          icon: Icons.add_alarm_outlined,
-                          label: 'Add reminder',
+                          icon: Icons.free_breakfast_outlined,
+                          label: 'Add break',
                           value: '',
                           onTap: () => _addCustomReminder(settings),
                         ),
@@ -722,7 +768,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _SettingRow(
                         icon: Icons.info_outline,
                         label: 'Version',
-                        value: '1.0.0',
+                        value: '1.0.6',
                         onTap: null,
                       ),
                       const _Divider(),
@@ -1022,7 +1068,7 @@ class _CustomReminderRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(Icons.alarm_outlined, size: 20, color: t.textSecondary),
+          Icon(Icons.free_breakfast_outlined, size: 20, color: t.textSecondary),
           const SizedBox(width: 12),
           Expanded(
             child: GestureDetector(
@@ -1035,7 +1081,7 @@ class _CustomReminderRow extends StatelessWidget {
                     reminder.label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                   ),
-                  Text(reminder.timeDisplay, style: Theme.of(context).textTheme.labelMedium),
+                  Text(reminder.windowDisplay, style: Theme.of(context).textTheme.labelMedium),
                 ],
               ),
             ),
@@ -1043,7 +1089,7 @@ class _CustomReminderRow extends StatelessWidget {
           IconButton(
             onPressed: onDelete,
             icon: Icon(Icons.delete_outline, size: 20, color: t.textTertiary),
-            tooltip: 'Delete reminder',
+            tooltip: 'Delete break',
           ),
           Switch(value: reminder.enabled, onChanged: onChanged),
         ],

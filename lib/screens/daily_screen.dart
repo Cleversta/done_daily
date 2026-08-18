@@ -16,6 +16,8 @@ import '../models/settings_model.dart';
 import '../services/notification_service.dart';
 import '../services/support_card_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/break_sheet.dart';
+import '../widgets/day_timeline.dart';
 import '../widgets/support_bottom_sheet.dart';
 
 enum _ReminderType { morning, workEnd }
@@ -164,11 +166,25 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
               ),
             ),
 
-            // Reminder chips
+            // Day frame: start → breaks → end
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: DayTimeline(now: now),
+            ),
+
+            // Reminder chips (morning + work end)
             const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: _ReminderBar(onPickTime: (type) => _pickReminderTime(context, type)),
+            ),
+
+            // Break windows — add / edit directly from Today
+            const SizedBox(height: 12),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: BreaksBar(),
             ),
 
             // Progress bar
@@ -335,6 +351,8 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
     } else {
       final updated = settings.copyWith(workEndHour: picked.hour, workEndMinute: picked.minute);
       settingsBloc.add(UpdateSettingsEvent(updated));
+      // Keep today's Daily record + countdown in sync with the new work-end time
+      context.read<DailyBloc>().add(SetWorkEndTimeEvent(hour: picked.hour, minute: picked.minute));
       if (settings.notificationsEnabled && settings.workEndNotificationEnabled) {
         await NotificationService.instance.scheduleWorkEndNotification(picked.hour, picked.minute);
       }
