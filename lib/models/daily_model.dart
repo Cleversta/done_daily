@@ -65,6 +65,8 @@ class Daily extends Equatable {
     String? reflection,
     int? focusMinutes,
     String? tomorrowNote,
+    bool clearNotes = false,
+    bool clearTomorrowNote = false,
   }) {
     return Daily(
       id: id ?? this.id,
@@ -74,10 +76,10 @@ class Daily extends Equatable {
       workEndMinute: workEndMinute ?? this.workEndMinute,
       isRestDay: isRestDay ?? this.isRestDay,
       windDownCompleted: windDownCompleted ?? this.windDownCompleted,
-      notes: notes ?? this.notes,
+      notes: clearNotes ? null : notes ?? this.notes,
       reflection: reflection ?? this.reflection,
       focusMinutes: focusMinutes ?? this.focusMinutes,
-      tomorrowNote: tomorrowNote ?? this.tomorrowNote,
+      tomorrowNote: clearTomorrowNote ? null : tomorrowNote ?? this.tomorrowNote,
     );
   }
 
@@ -87,5 +89,5 @@ class Daily extends Equatable {
   double get completionRatio => totalGoalsCount == 0 ? 0 : completedGoalsCount / totalGoalsCount;
 
   @override
-  List<Object?> get props => [id, date, goals, workEndHour, workEndMinute, isRestDay, windDownCompleted, notes, reflection];
+  List<Object?> get props => [id, date, goals, workEndHour, workEndMinute, isRestDay, windDownCompleted, notes, reflection, focusMinutes, tomorrowNote];
 }

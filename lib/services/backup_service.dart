@@ -16,6 +16,9 @@ class BackupService {
   BackupService._();
   static final BackupService instance = BackupService._();
 
+  String _dateKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
   Future<void> exportData() async {
     final dailyBox = await Hive.openBox<Daily>('daily');
     final settingsBox = await Hive.openBox<AppSettings>('settings');
@@ -58,6 +61,13 @@ class BackupService {
 
     final dailyBox = await Hive.openBox<Daily>('daily');
     final recurringBox = await Hive.openBox<RecurringGoal>('recurring_goals');
+    final settingsBox = await Hive.openBox<AppSettings>('settings');
+
+    // Restore settings
+    final settingsJson = data['settings'] as Map<String, dynamic>?;
+    if (settingsJson != null && settingsJson.isNotEmpty) {
+      await settingsBox.put('app_settings', _settingsFromJson(settingsJson));
+    }
 
     // Restore recurring goals
     final recurringList = data['recurringGoals'] as List<dynamic>? ?? [];
@@ -83,12 +93,17 @@ class BackupService {
         createdAt: DateTime.tryParse(g['createdAt'] as String? ?? '') ?? DateTime.now(),
       )).toList();
 
+      final date = DateTime.parse(d['date'] as String);
       final daily = Daily(
-        id: d['id'] as String,
-        date: DateTime.parse(d['date'] as String),
+        id: d['id'] as String? ?? _dateKey(date),
+        date: date,
         goals: goalsList,
         isRestDay: d['isRestDay'] as bool? ?? false,
         reflection: d['reflection'] as String? ?? '',
+        focusMinutes: d['focusMinutes'] as int? ?? 0,
+        tomorrowNote: d['tomorrowNote'] as String?,
+        windDownCompleted: d['windDownCompleted'] as bool? ?? false,
+        notes: d['notes'] as String?,
       );
       await dailyBox.put(daily.id, daily);
     }
@@ -104,7 +119,34 @@ class BackupService {
       'restDays': s.restDays,
       'notificationsEnabled': s.notificationsEnabled,
       'isDarkMode': s.isDarkMode,
+      'workEndNotificationEnabled': s.workEndNotificationEnabled,
+      'morningReminderEnabled': s.morningReminderEnabled,
+      'morningReminderHour': s.morningReminderHour,
+      'morningReminderMinute': s.morningReminderMinute,
+      'weeklyReminderEnabled': s.weeklyReminderEnabled,
+      'weeklyReminderHour': s.weeklyReminderHour,
+      'weeklyReminderMinute': s.weeklyReminderMinute,
+      'hasSeenOnboarding': s.hasSeenOnboarding,
     };
+  }
+
+  AppSettings _settingsFromJson(Map<String, dynamic> j) {
+    const defaults = AppSettings();
+    return AppSettings(
+      workEndHour: j['workEndHour'] as int? ?? defaults.workEndHour,
+      workEndMinute: j['workEndMinute'] as int? ?? defaults.workEndMinute,
+      restDays: (j['restDays'] as List<dynamic>?)?.cast<int>() ?? defaults.restDays,
+      notificationsEnabled: j['notificationsEnabled'] as bool? ?? defaults.notificationsEnabled,
+      isDarkMode: j['isDarkMode'] as bool? ?? defaults.isDarkMode,
+      workEndNotificationEnabled: j['workEndNotificationEnabled'] as bool? ?? defaults.workEndNotificationEnabled,
+      morningReminderEnabled: j['morningReminderEnabled'] as bool? ?? defaults.morningReminderEnabled,
+      morningReminderHour: j['morningReminderHour'] as int? ?? defaults.morningReminderHour,
+      morningReminderMinute: j['morningReminderMinute'] as int? ?? defaults.morningReminderMinute,
+      weeklyReminderEnabled: j['weeklyReminderEnabled'] as bool? ?? defaults.weeklyReminderEnabled,
+      weeklyReminderHour: j['weeklyReminderHour'] as int? ?? defaults.weeklyReminderHour,
+      weeklyReminderMinute: j['weeklyReminderMinute'] as int? ?? defaults.weeklyReminderMinute,
+      hasSeenOnboarding: j['hasSeenOnboarding'] as bool? ?? defaults.hasSeenOnboarding,
+    );
   }
 
   Map<String, dynamic> _recurringToJson(RecurringGoal g) => {
@@ -119,6 +161,10 @@ class BackupService {
     'date': d.date.toIso8601String(),
     'isRestDay': d.isRestDay,
     'reflection': d.reflection,
+    'focusMinutes': d.focusMinutes,
+    'tomorrowNote': d.tomorrowNote,
+    'windDownCompleted': d.windDownCompleted,
+    'notes': d.notes,
     'goals': d.goals.map((g) => {
       'id': g.id,
       'title': g.title,

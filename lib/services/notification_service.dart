@@ -22,7 +22,16 @@ class NotificationService {
     tz.setLocalLocation(tz.getLocation(localTz));
 
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidSettings);
+    const darwinSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: darwinSettings,
+      macOS: darwinSettings,
+    );
 
     await _plugin.initialize(initSettings);
     _initialized = true;
@@ -55,6 +64,7 @@ class NotificationService {
           priority: Priority.high,
           sound: RawResourceAndroidNotificationSound('notisong'),
         ),
+        iOS: DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
@@ -84,6 +94,7 @@ class NotificationService {
           priority: Priority.defaultPriority,
           sound: RawResourceAndroidNotificationSound('notisong'),
         ),
+        iOS: DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
@@ -117,6 +128,7 @@ class NotificationService {
           priority: Priority.defaultPriority,
           sound: RawResourceAndroidNotificationSound('notisong'),
         ),
+        iOS: DarwinNotificationDetails(),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,

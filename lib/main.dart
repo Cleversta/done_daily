@@ -69,10 +69,12 @@ class _DoneDailyAppState extends State<DoneDailyApp> {
           path: '/complete',
           name: 'complete',
           builder: (context, state) {
-            final extra = state.extra as Map<String, dynamic>;
+            final extra = state.extra as Map<String, dynamic>?;
+            final daily = extra?['daily'] as Daily?;
+            if (daily == null) return const MainShell();
             return GoalCompleteScreen(
-              daily: extra['daily'] as Daily,
-              completedGoalTitle: extra['completedGoalTitle'] as String? ?? 'Goal',
+              daily: daily,
+              completedGoalTitle: extra?['completedGoalTitle'] as String? ?? 'Goal',
             );
           },
         ),
@@ -80,19 +82,21 @@ class _DoneDailyAppState extends State<DoneDailyApp> {
           path: '/winddown',
           name: 'winddown',
           builder: (context, state) {
-            final extra = state.extra as Map<String, dynamic>;
-            return WindDownScreen(daily: extra['daily'] as Daily);
+            final extra = state.extra as Map<String, dynamic>?;
+            final daily = extra?['daily'] as Daily?;
+            if (daily == null) return const MainShell();
+            return WindDownScreen(daily: daily);
           },
         ),
         GoRoute(
           path: '/focus',
           name: 'focus',
           builder: (context, state) {
-            final extra = state.extra as Map<String, dynamic>;
-            return FocusScreen(
-              goal: extra['goal'] as Goal,
-              daily: extra['daily'] as Daily,
-            );
+            final extra = state.extra as Map<String, dynamic>?;
+            final goal = extra?['goal'] as Goal?;
+            final daily = extra?['daily'] as Daily?;
+            if (goal == null || daily == null) return const MainShell();
+            return FocusScreen(goal: goal, daily: daily);
           },
         ),
         GoRoute(
@@ -152,7 +156,10 @@ class _GoalCompletionListener extends StatelessWidget {
     return BlocListener<DailyBloc, DailyState>(
       listener: (context, state) {
         if (state is GoalCompleted) {
-          final goal = state.daily.goals.firstWhere((g) => g.id == state.completedGoalId);
+          final goal = state.daily.goals
+              .where((g) => g.id == state.completedGoalId)
+              .firstOrNull;
+          if (goal == null) return;
           router.pushNamed('complete', extra: {
             'daily': state.daily,
             'completedGoalTitle': goal.title,

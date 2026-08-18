@@ -13,9 +13,9 @@ import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../services/backup_service.dart';
 
-// TODO: replace these with real Play Store links after publishing
-const _playStoreUrl = 'https://play.google.com/store/apps/details?id=com.example.done_daily';
-const _playStoreRateUrl = 'https://play.google.com/store/apps/details?id=com.example.done_daily&reviewId=0';
+const _appId = 'com.cleversta.done_daily';
+const _playStoreUrl = 'https://play.google.com/store/apps/details?id=$_appId';
+const _playStoreRateUrl = 'market://details?id=$_appId';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -39,14 +39,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (url == _playStoreRateUrl) {
+      await launchUrl(Uri.parse(_playStoreUrl), mode: LaunchMode.externalApplication);
     }
   }
 
-  Future<void> _restoreBackup(BuildContext context) async {
+  Future<void> _restoreBackup() async {
     try {
       final count = await BackupService.instance.importData();
       if (!mounted) return;
       if (count == -1) return;
+      context.read<DailyBloc>().add(const LoadDailyEvent());
+      context.read<SettingsBloc>().add(const InitializeSettingsEvent());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Restored $count days of data.'),
@@ -576,7 +580,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: Icons.upload_outlined,
                         label: 'Restore backup',
                         value: '',
-                        onTap: () => _restoreBackup(context),
+                        onTap: _restoreBackup,
                       ),
                     ],
                   ),
