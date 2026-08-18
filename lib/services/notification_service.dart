@@ -4,6 +4,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 
+import '../models/custom_reminder.dart';
+
 class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
@@ -136,6 +138,63 @@ class NotificationService {
     );
   }
 
+  Future<void> scheduleCustomReminder(CustomReminder reminder) async {
+    await _plugin.cancel(reminder.id);
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      reminder.hour,
+      reminder.minute,
+    );
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
+    await _plugin.zonedSchedule(
+      reminder.id,
+      reminder.label,
+      'Reminder from DONE:Daily.',
+      scheduled,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'custom_reminder_v1',
+          'Custom Reminders',
+          channelDescription: 'Your own reminders during the day',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          sound: RawResourceAndroidNotificationSound('notisong'),
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  Future<void> cancelCustomReminder(int id) => _plugin.cancel(id);
+
+  // Schedules every enabled reminder and cancels the ones that were disabled
+  // or deleted since the last sync.
+  Future<void> syncCustomReminders(List<CustomReminder> reminders) async {
+    final keep = <int>{};
+    for (final reminder in reminders) {
+      if (reminder.enabled) {
+        keep.add(reminder.id);
+        await scheduleCustomReminder(reminder);
+      }
+    }
+    final pending = await _plugin.pendingNotificationRequests();
+    for (final request in pending) {
+      if (request.id >= CustomReminder.idBase && !keep.contains(request.id)) {
+        await _plugin.cancel(request.id);
+      }
+    }
+  }
+
   Future<bool> hasPermission() async {
     return await Permission.notification.isGranted;
   }
@@ -153,6 +212,7 @@ class NotificationService {
     bool weeklyEnabled = false,
     int weeklyHour = 20,
     int weeklyMinute = 0,
+    List<CustomReminder> customReminders = const [],
   }) async {
     if (!enabled) {
       await cancelAll();
@@ -173,6 +233,7 @@ class NotificationService {
     } else {
       await cancelWeekly();
     }
+    await syncCustomReminders(customReminders);
   }
 
   Future<void> cancelWorkEnd() => _plugin.cancel(_workEndId);

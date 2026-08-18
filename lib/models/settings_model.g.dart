@@ -30,13 +30,15 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       weeklyReminderHour: fields[10] as int? ?? 20,
       weeklyReminderMinute: fields[11] as int? ?? 0,
       hasSeenOnboarding: fields[12] as bool? ?? false,
+      customReminders:
+          (fields[13] as List?)?.cast<CustomReminder>() ?? const [],
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.workEndHour)
       ..writeByte(1)
@@ -62,7 +64,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(11)
       ..write(obj.weeklyReminderMinute)
       ..writeByte(12)
-      ..write(obj.hasSeenOnboarding);
+      ..write(obj.hasSeenOnboarding)
+      ..writeByte(13)
+      ..write(obj.customReminders);
   }
 
   @override

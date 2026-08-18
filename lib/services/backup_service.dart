@@ -5,6 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
+import '../models/custom_reminder.dart';
 import '../models/daily_model.dart';
 import '../models/goal_model.dart';
 import '../models/settings_model.dart';
@@ -127,6 +128,7 @@ class BackupService {
       'weeklyReminderHour': s.weeklyReminderHour,
       'weeklyReminderMinute': s.weeklyReminderMinute,
       'hasSeenOnboarding': s.hasSeenOnboarding,
+      'customReminders': s.customReminders.map((r) => r.toJson()).toList(),
     };
   }
 
@@ -146,7 +148,21 @@ class BackupService {
       weeklyReminderHour: j['weeklyReminderHour'] as int? ?? defaults.weeklyReminderHour,
       weeklyReminderMinute: j['weeklyReminderMinute'] as int? ?? defaults.weeklyReminderMinute,
       hasSeenOnboarding: j['hasSeenOnboarding'] as bool? ?? defaults.hasSeenOnboarding,
+      customReminders: _remindersFromJson(j['customReminders'] as List<dynamic>?),
     );
+  }
+
+  List<CustomReminder> _remindersFromJson(List<dynamic>? list) {
+    if (list == null) return const [];
+    final reminders = <CustomReminder>[];
+    for (final entry in list) {
+      if (entry is! Map) continue;
+      reminders.add(CustomReminder.fromJson(
+        Map<String, dynamic>.from(entry),
+        fallbackId: CustomReminder.nextId(reminders),
+      ));
+    }
+    return reminders;
   }
 
   Map<String, dynamic> _recurringToJson(RecurringGoal g) => {

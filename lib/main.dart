@@ -8,6 +8,7 @@ import 'bloc/daily_state.dart';
 import 'bloc/settings_bloc.dart';
 import 'bloc/settings_event.dart';
 import 'bloc/settings_state.dart';
+import 'models/custom_reminder.dart';
 import 'models/daily_model.dart';
 import 'models/goal_model.dart';
 import 'models/settings_model.dart';
@@ -28,6 +29,7 @@ void main() async {
   Hive.registerAdapter(DailyAdapter());
   Hive.registerAdapter(AppSettingsAdapter());
   Hive.registerAdapter(RecurringGoalAdapter());
+  Hive.registerAdapter(CustomReminderAdapter());
 
   await NotificationService.instance.initialize();
 
