@@ -8,6 +8,7 @@ import '../bloc/daily_event.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
 import '../bloc/settings_state.dart';
+import '../models/custom_reminder.dart';
 import '../models/settings_model.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
@@ -132,6 +133,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       weeklyEnabled: updated.weeklyReminderEnabled,
       weeklyHour: updated.weeklyReminderHour,
       weeklyMinute: updated.weeklyReminderMinute,
+      customReminders: updated.customReminders,
     );
   }
 
@@ -217,6 +219,140 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await NotificationService.instance.cancelWeekly();
       }
     }
+  }
+
+  List<CustomReminder> _sortedReminders(AppSettings settings) {
+    final list = [...settings.customReminders];
+    list.sort((a, b) => a.minutesOfDay.compareTo(b.minutesOfDay));
+    return list;
+  }
+
+  Future<void> _saveReminders(AppSettings settings, List<CustomReminder> reminders) async {
+    _update(settings.copyWith(customReminders: reminders));
+    if (settings.notificationsEnabled) {
+      await NotificationService.instance.syncCustomReminders(reminders);
+    }
+  }
+
+  Future<void> _addCustomReminder(AppSettings settings) async {
+    final result = await _showReminderDialog();
+    if (result == null) return;
+    final reminder = CustomReminder(
+      id: CustomReminder.nextId(settings.customReminders),
+      label: result.label,
+      hour: result.time.hour,
+      minute: result.time.minute,
+    );
+    await _saveReminders(settings, [...settings.customReminders, reminder]);
+  }
+
+  Future<void> _editCustomReminder(AppSettings settings, CustomReminder reminder) async {
+    final result = await _showReminderDialog(existing: reminder);
+    if (result == null) return;
+    final updated = settings.customReminders
+        .map((r) => r.id == reminder.id
+            ? r.copyWith(label: result.label, hour: result.time.hour, minute: result.time.minute)
+            : r)
+        .toList();
+    await _saveReminders(settings, updated);
+  }
+
+  Future<void> _toggleCustomReminder(AppSettings settings, CustomReminder reminder, bool value) async {
+    final updated = settings.customReminders
+        .map((r) => r.id == reminder.id ? r.copyWith(enabled: value) : r)
+        .toList();
+    await _saveReminders(settings, updated);
+  }
+
+  Future<void> _deleteCustomReminder(AppSettings settings, CustomReminder reminder) async {
+    final updated = settings.customReminders.where((r) => r.id != reminder.id).toList();
+    _update(settings.copyWith(customReminders: updated));
+    await NotificationService.instance.cancelCustomReminder(reminder.id);
+  }
+
+  // Label + time editor shared by add and edit.
+  Future<({String label, TimeOfDay time})?> _showReminderDialog({CustomReminder? existing}) async {
+    final controller = TextEditingController(text: existing?.label ?? '');
+    var time = existing == null
+        ? const TimeOfDay(hour: 13, minute: 0)
+        : TimeOfDay(hour: existing.hour, minute: existing.minute);
+
+    final result = await showDialog<({String label, TimeOfDay time})>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            final t = NTheme.of(dialogContext);
+            return AlertDialog(
+              backgroundColor: t.background,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.large)),
+              title: Text(existing == null ? 'New reminder' : 'Edit reminder'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      hintText: 'Label (e.g. Lunch break)',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: dialogContext,
+                        initialTime: time,
+                        builder: (ctx, child) => _timepickerTheme(ctx, child),
+                      );
+                      if (picked != null) setDialogState(() => time = picked);
+                    },
+                    child: Row(
+                      children: [
+                        Icon(Icons.access_time_outlined, size: 20, color: t.textSecondary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Time',
+                            style: Theme.of(dialogContext).textTheme.bodyMedium,
+                          ),
+                        ),
+                        Text(
+                          time.format(dialogContext),
+                          style: Theme.of(dialogContext)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(color: t.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final label = controller.text.trim();
+                    if (label.isEmpty) return;
+                    Navigator.of(dialogContext).pop((label: label, time: time));
+                  },
+                  child: Text(existing == null ? 'Add' : 'Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return result;
   }
 
   Widget _timepickerTheme(BuildContext context, Widget? child) {
@@ -508,6 +644,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             onTap: () => _pickWeeklyTime(settings),
                           ),
                         ],
+
+                        // Custom reminders between morning and work end
+                        for (final reminder in _sortedReminders(settings)) ...[
+                          const _Divider(),
+                          _CustomReminderRow(
+                            reminder: reminder,
+                            onTap: () => _editCustomReminder(settings, reminder),
+                            onChanged: (v) => _toggleCustomReminder(settings, reminder, v),
+                            onDelete: () => _deleteCustomReminder(settings, reminder),
+                          ),
+                        ],
+
+                        const _Divider(),
+                        _SettingRow(
+                          icon: Icons.add_alarm_outlined,
+                          label: 'Add reminder',
+                          value: '',
+                          onTap: () => _addCustomReminder(settings),
+                        ),
                       ],
                     ],
                   ),
@@ -764,6 +919,56 @@ class _SwitchRow extends StatelessWidget {
             )
           else
             Switch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _CustomReminderRow extends StatelessWidget {
+  final CustomReminder reminder;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onDelete;
+
+  const _CustomReminderRow({
+    required this.reminder,
+    required this.onTap,
+    required this.onChanged,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = NTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(Icons.alarm_outlined, size: 20, color: t.textSecondary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: GestureDetector(
+              onTap: onTap,
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    reminder.label,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  Text(reminder.timeDisplay, style: Theme.of(context).textTheme.labelMedium),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: Icon(Icons.delete_outline, size: 20, color: t.textTertiary),
+            tooltip: 'Delete reminder',
+          ),
+          Switch(value: reminder.enabled, onChanged: onChanged),
         ],
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'custom_reminder.dart';
 
 part 'settings_model.g.dart';
 
@@ -43,6 +44,10 @@ class AppSettings {
   @HiveField(12)
   final bool hasSeenOnboarding;
 
+  /// User-defined reminders that sit between the morning and work-end ones.
+  @HiveField(13)
+  final List<CustomReminder> customReminders;
+
   const AppSettings({
     this.workEndHour = 18,
     this.workEndMinute = 0,
@@ -57,6 +62,7 @@ class AppSettings {
     this.weeklyReminderHour = 20,
     this.weeklyReminderMinute = 0,
     this.hasSeenOnboarding = false,
+    this.customReminders = const [],
   });
 
   AppSettings copyWith({
@@ -73,6 +79,7 @@ class AppSettings {
     int? weeklyReminderHour,
     int? weeklyReminderMinute,
     bool? hasSeenOnboarding,
+    List<CustomReminder>? customReminders,
   }) {
     return AppSettings(
       workEndHour: workEndHour ?? this.workEndHour,
@@ -88,6 +95,7 @@ class AppSettings {
       weeklyReminderHour: weeklyReminderHour ?? this.weeklyReminderHour,
       weeklyReminderMinute: weeklyReminderMinute ?? this.weeklyReminderMinute,
       hasSeenOnboarding: hasSeenOnboarding ?? this.hasSeenOnboarding,
+      customReminders: customReminders ?? this.customReminders,
     );
   }
 
