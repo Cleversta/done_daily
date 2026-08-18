@@ -2,7 +2,7 @@ name: done_daily
 description: "DONE:Daily - Complete your daily goals and actually rest."
 publish_to: 'none'
 
-version: 1.0.1+2
+version: 1.0.4+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

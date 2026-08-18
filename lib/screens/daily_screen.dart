@@ -14,7 +14,9 @@ import '../models/daily_model.dart';
 import '../models/goal_model.dart';
 import '../models/settings_model.dart';
 import '../services/notification_service.dart';
+import '../services/support_card_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/support_bottom_sheet.dart';
 
 enum _ReminderType { morning, workEnd }
 
@@ -24,7 +26,13 @@ class DailyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = NTheme.of(context);
-    return BlocBuilder<DailyBloc, DailyState>(
+    return BlocConsumer<DailyBloc, DailyState>(
+      listenWhen: (_, state) =>
+          state is GoalCompleted &&
+          state.streak >= 7 &&
+          SupportCardService.shouldShow(SupportCardService.triggerStreak),
+      listener: (context, _) =>
+          showSupportSheet(context, SupportCardService.triggerStreak),
       builder: (context, state) {
         if (state is DailyLoading || state is DailyInitial ||
             state is WeeklyArchiveLoaded || state is MonthlyArchiveLoaded) {
@@ -266,7 +274,6 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
                       daily: daily,
                       isDone: isDone,
                       remaining: remaining,
-                      onTap: () => _pickWorkEndTime(context, daily),
                       onWindDown: () => context.pushNamed('winddown', extra: {'daily': daily}),
                     ),
                     const SizedBox(height: 12),
@@ -293,16 +300,26 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
         ? TimeOfDay(hour: settings.morningReminderHour, minute: settings.morningReminderMinute)
         : TimeOfDay(hour: settings.workEndHour, minute: settings.workEndMinute);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final nt = NTheme.of(context);
     final picked = await showTimePicker(
       context: context,
       initialTime: initial,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: AppColors.textPrimary,
-            onPrimary: AppColors.background,
-            surface: AppColors.background,
-          ),
+          colorScheme: isDark
+              ? ColorScheme.dark(
+                  primary: nt.accent,
+                  onPrimary: Colors.white,
+                  surface: nt.surface,
+                  onSurface: nt.textPrimary,
+                )
+              : ColorScheme.light(
+                  primary: nt.accent,
+                  onPrimary: Colors.white,
+                  surface: nt.background,
+                  onSurface: nt.textPrimary,
+                ),
         ),
         child: child!,
       ),
@@ -322,25 +339,6 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
         await NotificationService.instance.scheduleWorkEndNotification(picked.hour, picked.minute);
       }
     }
-  }
-
-  Future<void> _pickWorkEndTime(BuildContext context, Daily daily) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: daily.workEndHour, minute: daily.workEndMinute),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: AppColors.textPrimary,
-            onPrimary: AppColors.background,
-            surface: AppColors.background,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked == null || !context.mounted) return;
-    context.read<DailyBloc>().add(SetWorkEndTimeEvent(hour: picked.hour, minute: picked.minute));
   }
 
   void _showAddSheet(BuildContext context) {
@@ -858,14 +856,12 @@ class _WorkEndCard extends StatelessWidget {
   final Daily daily;
   final bool isDone;
   final Duration remaining;
-  final VoidCallback onTap;
   final VoidCallback onWindDown;
 
   const _WorkEndCard({
     required this.daily,
     required this.isDone,
     required this.remaining,
-    required this.onTap,
     required this.onWindDown,
   });
 
@@ -878,91 +874,88 @@ class _WorkEndCard extends StatelessWidget {
     final dispH = h == 0 ? 12 : (h > 12 ? h - 12 : h);
     final timeStr = '$dispH:${m.toString().padLeft(2, '0')} $period';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDone
-            ? AppColors.success.withValues(alpha: 0.09)
-            : t.accent.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(AppRadii.large),
-        boxShadow: isDone ? t.insetShadow : t.boxShadow,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: onTap,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-                child: Row(
-                  children: [
-                    Icon(
-                      isDone ? Icons.check_circle_outline_rounded : Icons.schedule_outlined,
-                      size: 20,
-                      color: isDone ? AppColors.success : t.textSecondary,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isDone ? 'Work done ✓' : 'Work ends at $timeStr',
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          Text(
-                            isDone
-                                ? 'Tap the moon to wind down'
-                                : '${remaining.inHours}h ${remaining.inMinutes % 60}min remaining — tap to edit',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+    return Row(
+      children: [
+        // Work end info — display only, not tappable
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDone
+                  ? AppColors.success.withValues(alpha: 0.09)
+                  : t.accent.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              boxShadow: t.insetShadow,
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Row(
+              children: [
+                Icon(
+                  isDone ? Icons.check_circle_outline_rounded : Icons.schedule_outlined,
+                  size: 20,
+                  color: isDone ? AppColors.success : t.textSecondary,
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isDone ? 'Work done ✓' : 'Work ends at $timeStr',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      Text(
+                        isDone
+                            ? 'Great job today'
+                            : '${remaining.inHours}h ${remaining.inMinutes % 60}min remaining',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
+        ),
 
-          // Divider
-          Container(
-            width: 1,
-            height: 40,
-            color: t.shadowDark.withValues(alpha: 0.08),
-          ),
+        const SizedBox(width: 10),
 
-          // Right: wind-down button
-          GestureDetector(
-            onTap: onWindDown,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.nightlight_round_outlined,
-                    size: 22,
+        // Wind-down button — tappable
+        GestureDetector(
+          onTap: onWindDown,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: isDone
+                  ? t.accent.withValues(alpha: 0.1)
+                  : t.surface,
+              borderRadius: BorderRadius.circular(AppRadii.large),
+              boxShadow: t.boxShadow,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.nightlight_round_outlined,
+                  size: 22,
+                  color: isDone ? t.accent : t.textTertiary,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Wind\nDown',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
                     color: isDone ? t.accent : t.textTertiary,
+                    height: 1.2,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Wind\nDown',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w600,
-                      color: isDone ? t.accent : t.textTertiary,
-                      height: 1.2,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

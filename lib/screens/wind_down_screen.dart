@@ -6,6 +6,8 @@ import '../bloc/daily_bloc.dart';
 import '../bloc/daily_event.dart';
 import '../models/daily_model.dart';
 import '../theme/app_theme.dart';
+import '../services/support_card_service.dart';
+import '../widgets/support_bottom_sheet.dart';
 
 class WindDownScreen extends StatefulWidget {
   final Daily daily;
@@ -89,11 +91,14 @@ class _WindDownScreenState extends State<WindDownScreen>
     setState(() => _phase = 1);
   }
 
-  void _saveAndExit() {
+  Future<void> _saveAndExit() async {
     if (_notesController.text.trim().isNotEmpty) {
       context.read<DailyBloc>().add(UpdateDailyNotesEvent(_notesController.text.trim()));
     }
-    Navigator.pop(context);
+    if (SupportCardService.shouldShow(SupportCardService.triggerWindDown) && mounted) {
+      await showSupportSheet(context, SupportCardService.triggerWindDown);
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   String _fmt(int s) {

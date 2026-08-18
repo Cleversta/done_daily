@@ -14,9 +14,9 @@ import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../services/backup_service.dart';
 
-const _appId = 'com.cleversta.done_daily';
-const _playStoreUrl = 'https://play.google.com/store/apps/details?id=$_appId';
-const _playStoreRateUrl = 'market://details?id=$_appId';
+// TODO: replace these with real Play Store links after publishing
+const _playStoreUrl = 'https://play.google.com/store/apps/details?id=com.example.done_daily';
+const _playStoreRateUrl = 'https://play.google.com/store/apps/details?id=com.example.done_daily&reviewId=0';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -40,8 +40,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (url == _playStoreRateUrl) {
-      await launchUrl(Uri.parse(_playStoreUrl), mode: LaunchMode.externalApplication);
     }
   }
 
@@ -356,13 +354,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _timepickerTheme(BuildContext context, Widget? child) {
+    final t = NTheme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Theme(
       data: Theme.of(context).copyWith(
-        colorScheme: const ColorScheme.light(
-          primary: AppColors.textPrimary,
-          onPrimary: AppColors.background,
-          surface: AppColors.background,
-        ),
+        colorScheme: isDark
+            ? ColorScheme.dark(
+                primary: t.accent,
+                onPrimary: Colors.white,
+                surface: t.surface,
+                onSurface: t.textPrimary,
+              )
+            : ColorScheme.light(
+                primary: t.accent,
+                onPrimary: Colors.white,
+                surface: t.background,
+                onSurface: t.textPrimary,
+              ),
       ),
       child: child!,
     );
@@ -432,6 +440,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'You can export your data anytime from this screen. The export is a plain JSON file that only you control.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textSecondary),
               ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: () => _openUrl('https://cleversta.github.io/done_daily_privacy/'),
+                child: Text(
+                  'View full privacy policy →',
+                  style: TextStyle(fontSize: 13, color: t.accent, fontWeight: FontWeight.w500),
+                ),
+              ),
             ],
           ),
         );
@@ -471,49 +487,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Text('How to use', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 20),
 
-              _HowToTip(
+              const _HowToTip(
                 icon: Icons.add_circle_outline,
                 title: 'Adding goals',
                 body: 'Tap + to add a goal for today. Tap the star to mark it as priority — priority goals appear at the top. Long-press any goal to drag and reorder.',
               ),
               const SizedBox(height: 16),
 
-              _HowToTip(
+              const _HowToTip(
                 icon: Icons.repeat_rounded,
                 title: 'Recurring goals',
                 body: 'When adding a goal, tap the Repeat toggle to make it a habit. Choose which days it appears, or leave all unselected for every day. Recurring goals auto-appear each morning.',
               ),
               const SizedBox(height: 16),
 
-              _HowToTip(
+              const _HowToTip(
                 icon: Icons.timer_outlined,
                 title: 'Focus timer',
                 body: 'Tap the ▶ button on any goal to start a focus session. Pick a duration and work without distraction. Tap \'Mark Done\' when finished.',
               ),
               const SizedBox(height: 16),
 
-              _HowToTip(
+              const _HowToTip(
                 icon: Icons.wb_sunny_outlined,
                 title: 'Carry-over',
                 body: 'If you didn\'t finish all your goals yesterday, a banner will appear offering to carry them into today. Tap Add to bring them over, or dismiss to start fresh.',
               ),
               const SizedBox(height: 16),
 
-              _HowToTip(
+              const _HowToTip(
                 icon: Icons.edit_note_rounded,
                 title: 'Daily reflection',
                 body: 'At the bottom of Today, write a few words about how the day went. These notes are saved and visible when you tap any past day in the Archive.',
               ),
               const SizedBox(height: 16),
 
-              _HowToTip(
+              const _HowToTip(
                 icon: Icons.bar_chart_rounded,
                 title: 'Archive',
                 body: 'Tap the Archive tab to see your history. Use ‹ › to browse months. Tap any day in the calendar for the full breakdown.',
               ),
               const SizedBox(height: 16),
 
-              _HowToTip(
+              const _HowToTip(
                 icon: Icons.download_outlined,
                 title: 'Backup',
                 body: 'Go to Settings → About → Export data to save all your data as a JSON file. Keep it in Google Drive or email it to yourself.',
@@ -760,12 +776,73 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: '',
                         onTap: () => _openUrl(_playStoreRateUrl),
                       ),
-                      const _Divider(),
-                      _SettingRow(
-                        icon: Icons.person_outline_rounded,
-                        label: 'Developer',
-                        value: 'marason',
-                        onTap: () => _openUrl(_playStoreUrl),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // Developer card
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: t.surface,
+                    borderRadius: BorderRadius.circular(AppRadii.large),
+                    boxShadow: t.boxShadow,
+                  ),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Free badges row
+                      Row(
+                        children: [
+                          _FreeBadge(icon: Icons.favorite_rounded, label: 'Free forever', color: t.success),
+                          const SizedBox(width: 6),
+                          _FreeBadge(icon: Icons.hide_source_rounded, label: 'No ads', color: t.accent),
+                          const SizedBox(width: 6),
+                          _FreeBadge(icon: Icons.all_inclusive_rounded, label: 'No subscription', color: t.accent),
+                        ],
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      Text(
+                        'DONE:Daily is completely free and will always stay that way. If it has helped you, any support means a lot.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: t.textSecondary,
+                          height: 1.55,
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // CTA button
+                      GestureDetector(
+                        onTap: () => _openUrl('https://cleversta.github.io/about_me/'),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            color: t.accent,
+                            borderRadius: BorderRadius.circular(AppRadii.large),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.volunteer_activism_rounded, size: 16, color: Colors.white),
+                              SizedBox(width: 8),
+                              Text(
+                                'Visit developer page',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1018,6 +1095,36 @@ class _HowToTip extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FreeBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _FreeBadge({required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+          ),
+        ],
+      ),
     );
   }
 }

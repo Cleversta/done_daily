@@ -20,6 +20,7 @@ import 'screens/goal_complete_screen.dart';
 import 'screens/wind_down_screen.dart';
 import 'screens/focus_screen.dart';
 import 'services/notification_service.dart';
+import 'services/support_card_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -32,6 +33,7 @@ void main() async {
   Hive.registerAdapter(CustomReminderAdapter());
 
   await NotificationService.instance.initialize();
+  await SupportCardService.init();
 
   runApp(const DoneDailyApp());
 }

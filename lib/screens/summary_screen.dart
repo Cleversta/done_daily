@@ -9,9 +9,28 @@ import '../bloc/settings_state.dart';
 import '../models/daily_model.dart';
 import '../models/settings_model.dart';
 import '../theme/app_theme.dart';
+import '../services/support_card_service.dart';
+import '../widgets/support_bottom_sheet.dart';
 
-class SummaryScreen extends StatelessWidget {
+class SummaryScreen extends StatefulWidget {
   const SummaryScreen({super.key});
+
+  @override
+  State<SummaryScreen> createState() => _SummaryScreenState();
+}
+
+class _SummaryScreenState extends State<SummaryScreen> {
+  bool _supportChecked = false;
+
+  void _maybeShowSupport(int streak) {
+    if (_supportChecked) return;
+    _supportChecked = true;
+    if (streak >= 5 && SupportCardService.shouldShow(SupportCardService.triggerWeekly)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showSupportSheet(context, SupportCardService.triggerWeekly);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +40,7 @@ class SummaryScreen extends StatelessWidget {
       body: SafeArea(
         child: BlocBuilder<DailyBloc, DailyState>(
           builder: (context, dailyState) {
+            if (dailyState is DailyLoaded) _maybeShowSupport(dailyState.streak);
             return BlocBuilder<SettingsBloc, SettingsState>(
               builder: (context, settingsState) {
                 final settings = settingsState is SettingsLoaded
