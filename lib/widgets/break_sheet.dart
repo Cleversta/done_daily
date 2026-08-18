@@ -447,12 +447,12 @@ class BreaksBar extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'Breaks',
+                  'BREAKS',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: t.textTertiary,
-                    letterSpacing: 0.4,
+                    letterSpacing: 0.8,
                   ),
                 ),
                 const Spacer(),
@@ -464,7 +464,7 @@ class BreaksBar extends StatelessWidget {
                       Icon(Icons.add_rounded, size: 16, color: t.accent),
                       const SizedBox(width: 2),
                       Text(
-                        'Add',
+                        'Add lunch',
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: t.accent),
                       ),
                     ],
@@ -490,7 +490,7 @@ class BreaksBar extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'No breaks yet — add lunch or a coffee break',
+                          'Add lunch or coffee — optional',
                           style: TextStyle(fontSize: 13, color: t.textSecondary),
                         ),
                       ),

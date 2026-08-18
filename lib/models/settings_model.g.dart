@@ -1,5 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// Hand-updated for workStart + wrap-up fields (14–17). Backward-compatible.
+// Hand-updated for workStart, wrap-up, prepMinutesBefore. Backward-compatible.
 
 part of 'settings_model.dart';
 
@@ -29,17 +29,18 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       hasSeenOnboarding: fields[12] as bool? ?? false,
       customReminders:
           (fields[13] as List?)?.cast<CustomReminder>() ?? const [],
-      workStartHour: fields[14] as int? ?? 9,
+      workStartHour: fields[14] as int? ?? 8,
       workStartMinute: fields[15] as int? ?? 0,
       wrapUpEnabled: fields[16] as bool? ?? true,
       wrapUpMinutesBefore: fields[17] as int? ?? 15,
+      prepMinutesBefore: fields[18] as int? ?? 15,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettings obj) {
     writer
-      ..writeByte(18)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.workEndHour)
       ..writeByte(1)
@@ -75,7 +76,9 @@ class AppSettingsAdapter extends TypeAdapter<AppSettings> {
       ..writeByte(16)
       ..write(obj.wrapUpEnabled)
       ..writeByte(17)
-      ..write(obj.wrapUpMinutesBefore);
+      ..write(obj.wrapUpMinutesBefore)
+      ..writeByte(18)
+      ..write(obj.prepMinutesBefore);
   }
 
   @override

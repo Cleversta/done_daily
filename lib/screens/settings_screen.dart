@@ -121,21 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final updated = settings.copyWith(notificationsEnabled: true);
     _update(updated);
-    await NotificationService.instance.syncNotifications(
-      enabled: true,
-      workEndEnabled: updated.workEndNotificationEnabled,
-      workEndHour: updated.workEndHour,
-      workEndMinute: updated.workEndMinute,
-      morningEnabled: updated.morningReminderEnabled,
-      morningHour: updated.morningReminderHour,
-      morningMinute: updated.morningReminderMinute,
-      weeklyEnabled: updated.weeklyReminderEnabled,
-      weeklyHour: updated.weeklyReminderHour,
-      weeklyMinute: updated.weeklyReminderMinute,
-      customReminders: updated.customReminders,
-      wrapUpEnabled: updated.wrapUpEnabled,
-      wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
-    );
+    await NotificationService.instance.syncFromSettings(updated);
   }
 
   Future<void> _disableNotifications(AppSettings settings) async {
@@ -150,7 +136,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (ctx, child) => _timepickerTheme(ctx, child),
     );
     if (picked == null || !mounted) return;
-    _update(settings.copyWith(workStartHour: picked.hour, workStartMinute: picked.minute));
+    final updated = settings.copyWith(workStartHour: picked.hour, workStartMinute: picked.minute);
+    _update(updated);
+    // Prep reminder is relative to work start — reschedule when start moves.
+    if (settings.notificationsEnabled) {
+      await NotificationService.instance.syncFromSettings(updated);
+    }
   }
 
   Future<void> _pickWorkEndTime(AppSettings settings) async {
@@ -164,21 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _update(updated);
     context.read<DailyBloc>().add(SetWorkEndTimeEvent(hour: picked.hour, minute: picked.minute));
     if (settings.notificationsEnabled) {
-      await NotificationService.instance.syncNotifications(
-        enabled: true,
-        workEndEnabled: updated.workEndNotificationEnabled,
-        workEndHour: updated.workEndHour,
-        workEndMinute: updated.workEndMinute,
-        morningEnabled: updated.morningReminderEnabled,
-        morningHour: updated.morningReminderHour,
-        morningMinute: updated.morningReminderMinute,
-        weeklyEnabled: updated.weeklyReminderEnabled,
-        weeklyHour: updated.weeklyReminderHour,
-        weeklyMinute: updated.weeklyReminderMinute,
-        customReminders: updated.customReminders,
-        wrapUpEnabled: updated.wrapUpEnabled,
-        wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
-      );
+      await NotificationService.instance.syncFromSettings(updated);
     }
   }
 
@@ -186,21 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final updated = settings.copyWith(wrapUpEnabled: value);
     _update(updated);
     if (settings.notificationsEnabled) {
-      await NotificationService.instance.syncNotifications(
-        enabled: true,
-        workEndEnabled: updated.workEndNotificationEnabled,
-        workEndHour: updated.workEndHour,
-        workEndMinute: updated.workEndMinute,
-        morningEnabled: updated.morningReminderEnabled,
-        morningHour: updated.morningReminderHour,
-        morningMinute: updated.morningReminderMinute,
-        weeklyEnabled: updated.weeklyReminderEnabled,
-        weeklyHour: updated.weeklyReminderHour,
-        weeklyMinute: updated.weeklyReminderMinute,
-        customReminders: updated.customReminders,
-        wrapUpEnabled: updated.wrapUpEnabled,
-        wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
-      );
+      await NotificationService.instance.syncFromSettings(updated);
     }
   }
 
@@ -239,35 +202,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final updated = settings.copyWith(wrapUpMinutesBefore: picked);
     _update(updated);
     if (settings.notificationsEnabled) {
-      await NotificationService.instance.syncNotifications(
-        enabled: true,
-        workEndEnabled: updated.workEndNotificationEnabled,
-        workEndHour: updated.workEndHour,
-        workEndMinute: updated.workEndMinute,
-        morningEnabled: updated.morningReminderEnabled,
-        morningHour: updated.morningReminderHour,
-        morningMinute: updated.morningReminderMinute,
-        weeklyEnabled: updated.weeklyReminderEnabled,
-        weeklyHour: updated.weeklyReminderHour,
-        weeklyMinute: updated.weeklyReminderMinute,
-        customReminders: updated.customReminders,
-        wrapUpEnabled: updated.wrapUpEnabled,
-        wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
-      );
+      await NotificationService.instance.syncFromSettings(updated);
     }
   }
 
-  Future<void> _pickMorningTime(AppSettings settings) async {
-    final picked = await showTimePicker(
+  Future<void> _pickPrepMinutes(AppSettings settings) async {
+    final choices = [10, 15, 20, 30, 45, 60];
+    final picked = await showModalBottomSheet<int>(
       context: context,
-      initialTime: TimeOfDay(hour: settings.morningReminderHour, minute: settings.morningReminderMinute),
-      builder: (ctx, child) => _timepickerTheme(ctx, child),
+      backgroundColor: NTheme.of(context).background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final t = NTheme.of(ctx);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Text('Remind me before work starts', style: Theme.of(ctx).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              for (final m in choices)
+                ListTile(
+                  title: Text('$m minutes before'),
+                  trailing: settings.prepMinutesBefore == m
+                      ? Icon(Icons.check_rounded, color: t.accent)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, m),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
     if (picked == null || !mounted) return;
-    final updated = settings.copyWith(morningReminderHour: picked.hour, morningReminderMinute: picked.minute);
+    final updated = settings.copyWith(prepMinutesBefore: picked);
     _update(updated);
-    if (settings.notificationsEnabled && settings.morningReminderEnabled) {
-      await NotificationService.instance.scheduleMorningReminder(picked.hour, picked.minute);
+    if (settings.notificationsEnabled) {
+      await NotificationService.instance.syncFromSettings(updated);
     }
   }
 
@@ -286,26 +260,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _toggleWorkEndNotification(AppSettings settings, bool value) async {
-    _update(settings.copyWith(workEndNotificationEnabled: value));
+    final updated = settings.copyWith(workEndNotificationEnabled: value);
+    _update(updated);
     if (settings.notificationsEnabled) {
-      if (value) {
-        await NotificationService.instance.scheduleWorkEndNotification(
-            settings.workEndHour, settings.workEndMinute);
-      } else {
-        await NotificationService.instance.cancelWorkEnd();
-      }
+      await NotificationService.instance.syncFromSettings(updated);
     }
   }
 
   Future<void> _toggleMorningNotification(AppSettings settings, bool value) async {
-    _update(settings.copyWith(morningReminderEnabled: value));
+    final updated = settings.copyWith(morningReminderEnabled: value);
+    _update(updated);
     if (settings.notificationsEnabled) {
-      if (value) {
-        await NotificationService.instance.scheduleMorningReminder(
-            settings.morningReminderHour, settings.morningReminderMinute);
-      } else {
-        await NotificationService.instance.cancelMorning();
-      }
+      await NotificationService.instance.syncFromSettings(updated);
     }
   }
 
@@ -574,32 +540,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 const SizedBox(height: 24),
 
-                // ── Work day frame ─────────────────────────────────────
-                _SectionLabel('YOUR WORK DAY'),
-                const SizedBox(height: 10),
+                // ── Schedule ───────────────────────────────────────────
+                _SectionLabel('SCHEDULE'),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 10),
+                  child: Text(
+                    'Your work hours. Alerts follow these times automatically.',
+                    style: TextStyle(fontSize: 12, color: NTheme.of(context).textTertiary, height: 1.3),
+                  ),
+                ),
                 _Card(
                   child: Column(
                     children: [
                       _SettingRow(
                         icon: Icons.play_arrow_rounded,
-                        label: 'Work start',
+                        label: 'Starts at',
                         value: settings.workStartDisplay,
                         onTap: () => _pickWorkStartTime(settings),
                       ),
                       const _Divider(),
                       _SettingRow(
                         icon: Icons.flag_rounded,
-                        label: 'Work end',
+                        label: 'Ends at',
                         value: settings.workEndDisplay,
                         onTap: () => _pickWorkEndTime(settings),
                       ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // ── Day alerts (plain language) ────────────────────────
+                _SectionLabel('DAY ALERTS'),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 10),
+                  child: Text(
+                    'Optional nudges around start and end. Breaks are set on the home screen.',
+                    style: TextStyle(fontSize: 12, color: NTheme.of(context).textTertiary, height: 1.3),
+                  ),
+                ),
+                _Card(
+                  child: Column(
+                    children: [
+                      _SwitchRow(
+                        icon: Icons.wb_sunny_outlined,
+                        label: 'Before work starts',
+                        subtitle: settings.morningReminderEnabled
+                            ? 'At ${settings.morningReminderDisplay} · plan goals'
+                            : 'Off',
+                        value: settings.morningReminderEnabled,
+                        onChanged: (v) => _toggleMorningNotification(settings, v),
+                      ),
+                      if (settings.morningReminderEnabled) ...[
+                        const _Divider(),
+                        _SettingRow(
+                          icon: Icons.timer_outlined,
+                          label: 'How early?',
+                          value: '${settings.prepMinutesBefore} min before start',
+                          onTap: () => _pickPrepMinutes(settings),
+                        ),
+                      ],
                       const _Divider(),
                       _SwitchRow(
                         icon: Icons.hourglass_bottom_rounded,
-                        label: 'Wrap-up reminder',
+                        label: 'Before work ends',
                         subtitle: settings.wrapUpEnabled
-                            ? '${settings.wrapUpMinutesBefore} min before work end'
-                            : 'Off — no early warning',
+                            ? 'At ${settings.wrapUpDisplay.split(' (').first} · wrap up'
+                            : 'Off',
                         value: settings.wrapUpEnabled,
                         onChanged: (v) => _toggleWrapUp(settings, v),
                       ),
@@ -607,8 +615,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const _Divider(),
                         _SettingRow(
                           icon: Icons.timer_outlined,
-                          label: 'Warn me',
-                          value: '${settings.wrapUpMinutesBefore} minutes before',
+                          label: 'How early?',
+                          value: '${settings.wrapUpMinutesBefore} min before end',
                           onTap: () => _pickWrapUpMinutes(settings),
                         ),
                       ],
@@ -649,8 +657,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // Work end notification
                         _SwitchRow(
                           icon: Icons.alarm_outlined,
-                          label: 'Work end reminder',
-                          subtitle: 'Notifies you when work time arrives',
+                          label: 'At work end',
+                          subtitle: settings.workEndNotificationEnabled
+                              ? 'At ${settings.workEndDisplay} · time to rest'
+                              : 'Off',
                           value: settings.workEndNotificationEnabled,
                           onChanged: (v) => _toggleWorkEndNotification(settings, v),
                         ),
@@ -662,27 +672,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             label: 'End reminder time',
                             value: settings.workEndDisplay,
                             onTap: () => _pickWorkEndTime(settings),
-                          ),
-                        ],
-
-                        const _Divider(),
-
-                        // Morning reminder
-                        _SwitchRow(
-                          icon: Icons.wb_sunny_outlined,
-                          label: 'Morning reminder',
-                          subtitle: 'Prompts you to set your goals each day',
-                          value: settings.morningReminderEnabled,
-                          onChanged: (v) => _toggleMorningNotification(settings, v),
-                        ),
-
-                        if (settings.morningReminderEnabled) ...[
-                          const _Divider(),
-                          _SettingRow(
-                            icon: Icons.access_time_outlined,
-                            label: 'Start reminder time',
-                            value: settings.morningReminderDisplay,
-                            onTap: () => _pickMorningTime(settings),
                           ),
                         ],
 

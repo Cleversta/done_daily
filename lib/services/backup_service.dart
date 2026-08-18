@@ -143,6 +143,7 @@ class BackupService {
       'hasSeenOnboarding': s.hasSeenOnboarding,
       'wrapUpEnabled': s.wrapUpEnabled,
       'wrapUpMinutesBefore': s.wrapUpMinutesBefore,
+      'prepMinutesBefore': s.prepMinutesBefore,
       'customReminders': s.customReminders.map((r) => r.toJson()).toList(),
     };
   }
@@ -167,6 +168,7 @@ class BackupService {
       hasSeenOnboarding: j['hasSeenOnboarding'] as bool? ?? defaults.hasSeenOnboarding,
       wrapUpEnabled: j['wrapUpEnabled'] as bool? ?? defaults.wrapUpEnabled,
       wrapUpMinutesBefore: j['wrapUpMinutesBefore'] as int? ?? defaults.wrapUpMinutesBefore,
+      prepMinutesBefore: j['prepMinutesBefore'] as int? ?? defaults.prepMinutesBefore,
       customReminders: _remindersFromJson(j['customReminders'] as List<dynamic>?),
     );
   }

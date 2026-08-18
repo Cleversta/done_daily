@@ -71,21 +71,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
     final updated = current.copyWith(notificationsEnabled: true);
     settingsBloc.add(UpdateSettingsEvent(updated));
-    await NotificationService.instance.syncNotifications(
-      enabled: true,
-      workEndEnabled: updated.workEndNotificationEnabled,
-      workEndHour: updated.workEndHour,
-      workEndMinute: updated.workEndMinute,
-      morningEnabled: updated.morningReminderEnabled,
-      morningHour: updated.morningReminderHour,
-      morningMinute: updated.morningReminderMinute,
-      weeklyEnabled: updated.weeklyReminderEnabled,
-      weeklyHour: updated.weeklyReminderHour,
-      weeklyMinute: updated.weeklyReminderMinute,
-      customReminders: updated.customReminders,
-      wrapUpEnabled: updated.wrapUpEnabled,
-      wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
-    );
+    await NotificationService.instance.syncFromSettings(updated);
   }
 
   void _onTap(int index) {

@@ -5,13 +5,12 @@ import '../bloc/settings_event.dart';
 import '../bloc/settings_state.dart';
 import '../bloc/daily_bloc.dart';
 import '../bloc/daily_event.dart';
-import '../models/custom_reminder.dart';
 import '../models/settings_model.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import 'break_sheet.dart';
 
-/// Visual map of the working day: start → breaks → wrap-up → end.
+/// Hero card for the work day — status, countdown, progress, start/end.
 class DayTimeline extends StatelessWidget {
   final DateTime now;
   const DayTimeline({super.key, required this.now});
@@ -22,8 +21,6 @@ class DayTimeline extends StatelessWidget {
       builder: (context, state) {
         final s = state is SettingsLoaded ? state.settings : const AppSettings();
         final t = NTheme.of(context);
-        final breaks = [...s.customReminders]
-          ..sort((a, b) => a.minutesOfDay.compareTo(b.minutesOfDay));
 
         final nowMins = now.hour * 60 + now.minute;
         final start = s.workStartMinutes;
@@ -40,128 +37,198 @@ class DayTimeline extends StatelessWidget {
         }
 
         final nowPos = pos(nowMins).clamp(0.0, 1.0);
-        final wrapMins = end - s.wrapUpMinutesBefore;
 
-        // Phase + remaining for the subtitle under the header
         final startDt = DateTime(now.year, now.month, now.day, s.workStartHour, s.workStartMinute);
         var endDt = DateTime(now.year, now.month, now.day, s.workEndHour, s.workEndMinute);
         if (!endDt.isAfter(startDt)) endDt = endDt.add(const Duration(days: 1));
-        String phaseLine;
+
+        late final String statusTitle;
+        late final String statusSub;
+        late final Color statusColor;
+        late final IconData statusIcon;
         if (now.isBefore(startDt)) {
           final d = startDt.difference(now);
-          phaseLine = d.inHours > 0
-              ? 'Before work · starts in ${d.inHours}h ${d.inMinutes % 60}m'
-              : 'Before work · starts in ${d.inMinutes}m';
+          statusTitle = 'Before work';
+          statusSub = d.inHours > 0
+              ? 'Starts in ${d.inHours}h ${d.inMinutes % 60}m'
+              : 'Starts in ${d.inMinutes}m';
+          statusColor = t.accent;
+          statusIcon = Icons.wb_twilight_rounded;
         } else if (now.isAfter(endDt)) {
-          phaseLine = 'After hours · day is closed';
+          statusTitle = 'Day closed';
+          statusSub = 'Nice work — rest now';
+          statusColor = t.success;
+          statusIcon = Icons.check_circle_rounded;
         } else {
           final d = endDt.difference(now);
-          phaseLine = d.inHours > 0
-              ? 'In work · ends in ${d.inHours}h ${d.inMinutes % 60}m'
-              : 'In work · ends in ${d.inMinutes}m';
+          statusTitle = 'Working';
+          statusSub = d.inHours > 0
+              ? '${d.inHours}h ${d.inMinutes % 60}m until end'
+              : '${d.inMinutes}m until end';
+          statusColor = t.accent;
+          statusIcon = Icons.bolt_rounded;
+        }
+
+        final enabledBreaks = s.customReminders.where((b) => b.enabled).toList()
+          ..sort((a, b) => a.minutesOfDay.compareTo(b.minutesOfDay));
+        final pct = (nowPos * 100).round().clamp(0, 100);
+
+        String? nextBreakLine;
+        for (final b in enabledBreaks) {
+          if (b.minutesOfDay > nowMins) {
+            final minsLeft = b.minutesOfDay - nowMins;
+            if (minsLeft >= 60) {
+              final h = minsLeft ~/ 60;
+              final m = minsLeft % 60;
+              nextBreakLine = m > 0 ? '${b.label} in ${h}h ${m}m' : '${b.label} in ${h}h';
+            } else {
+              nextBreakLine = '${b.label} in ${minsLeft}m';
+            }
+            break;
+          }
+        }
+
+        final hour = now.hour;
+        final Color phaseWash;
+        if (hour < 11) {
+          phaseWash = const Color(0xFFA5B4FC).withValues(alpha: 0.10);
+        } else if (hour < 16) {
+          phaseWash = const Color(0xFFFDE68A).withValues(alpha: 0.12);
+        } else if (hour < 19) {
+          phaseWash = const Color(0xFFFDBA74).withValues(alpha: 0.10);
+        } else {
+          phaseWash = const Color(0xFFC4B5FD).withValues(alpha: 0.10);
         }
 
         return Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
           decoration: BoxDecoration(
-            color: t.surface,
-            borderRadius: BorderRadius.circular(AppRadii.large),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color.lerp(t.surface, phaseWash, 1.0)!, t.surface],
+            ),
+            borderRadius: BorderRadius.circular(AppRadii.extraLarge),
             boxShadow: t.boxShadow,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Top: status badge + schedule range
               Row(
                 children: [
-                  Text(
-                    'YOUR DAY',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
-                      color: t.textTertiary,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(statusIcon, size: 14, color: statusColor),
+                        const SizedBox(width: 6),
+                        Text(
+                          statusTitle,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const Spacer(),
-                  GestureDetector(
-                    onTap: () => _editWorkWindow(context, s),
-                    child: Text(
-                      s.workWindowDisplay,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: t.accent,
-                      ),
+                  Text(
+                    '$pct% of day',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: t.textTertiary,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                phaseLine,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: t.textSecondary),
-              ),
-              const SizedBox(height: 12),
 
-              // Track
+              const SizedBox(height: 14),
+
+              // Big countdown / status
+              Text(
+                statusSub,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                  color: t.textPrimary,
+                  height: 1.15,
+                ),
+              ),
+              if (nextBreakLine != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.free_breakfast_rounded, size: 14, color: t.warning),
+                    const SizedBox(width: 6),
+                    Text(
+                      nextBreakLine!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: t.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              const SizedBox(height: 16),
+
+              // Progress track with soft fill
               SizedBox(
-                height: 28,
+                height: 10,
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final w = constraints.maxWidth;
                     return Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Base track
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top: 12,
-                          child: Container(
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: t.textTertiary.withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
+                        Container(
+                          width: w,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: t.textTertiary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(AppRadii.pill),
                           ),
                         ),
-                        // Progress filled
-                        Positioned(
-                          left: 0,
-                          top: 12,
-                          child: Container(
-                            width: (w * nowPos).clamp(0.0, w),
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: t.accent.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(2),
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 400),
+                          curve: Curves.easeOut,
+                          width: (w * nowPos).clamp(0.0, w),
+                          height: 10,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                statusColor.withValues(alpha: 0.7),
+                                statusColor,
+                              ],
                             ),
+                            borderRadius: BorderRadius.circular(AppRadii.pill),
                           ),
                         ),
-                        // Start marker
-                        _marker(w, 0, t.accent, Icons.play_arrow_rounded),
-                        // Break markers
-                        for (final b in breaks)
-                          if (b.enabled)
-                            _marker(
-                              w,
-                              pos(b.minutesOfDay),
-                              t.warning,
-                              Icons.free_breakfast_rounded,
-                            ),
-                        // Wrap-up marker
-                        if (s.wrapUpEnabled && s.workEndNotificationEnabled)
-                          _marker(w, pos(wrapMins), t.textSecondary, Icons.hourglass_bottom_rounded),
-                        // End marker
-                        _marker(w, 1.0, t.success, Icons.flag_rounded),
-                        // Now needle
+                        // "now" knob
                         Positioned(
-                          left: (w * nowPos).clamp(0.0, w) - 1,
-                          top: 4,
+                          left: ((w * nowPos) - 7).clamp(0.0, w - 14),
+                          top: -2,
                           child: Container(
-                            width: 2,
-                            height: 20,
-                            color: t.textPrimary,
+                            width: 14,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: t.surface,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: statusColor, width: 3),
+                              boxShadow: t.subtleShadow,
+                            ),
                           ),
                         ),
                       ],
@@ -169,71 +236,94 @@ class DayTimeline extends StatelessWidget {
                   },
                 ),
               ),
-              const SizedBox(height: 10),
 
-              // Legend chips
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
+              const SizedBox(height: 14),
+
+              // Start / End time pills
+              Row(
                 children: [
-                  _Legend(
-                    icon: Icons.play_arrow_rounded,
-                    label: 'Start ${s.workStartDisplay}',
-                    color: t.accent,
-                    onTap: () => _pickWorkStart(context, s),
-                    t: t,
+                  Expanded(
+                    child: _TimePill(
+                      label: 'START',
+                      time: s.workStartDisplay,
+                      icon: Icons.play_arrow_rounded,
+                      color: t.accent,
+                      onTap: () => _pickWorkStart(context, s),
+                      t: t,
+                    ),
                   ),
-                  for (final b in breaks.take(3))
-                    _Legend(
-                      icon: Icons.free_breakfast_rounded,
-                      label: b.label,
-                      color: b.enabled ? t.warning : t.textTertiary,
-                      onTap: () => BreakSheet.show(context, existing: b),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _TimePill(
+                      label: 'END',
+                      time: s.workEndDisplay,
+                      icon: Icons.flag_rounded,
+                      color: t.success,
+                      onTap: () => _pickWorkEnd(context, s),
                       t: t,
                     ),
-                  if (breaks.length > 3)
-                    _Legend(
-                      icon: Icons.more_horiz,
-                      label: '+${breaks.length - 3}',
-                      color: t.textTertiary,
-                      onTap: () => BreakSheet.show(context),
-                      t: t,
-                    ),
-                  _Legend(
-                    icon: Icons.flag_rounded,
-                    label: 'End ${s.workEndDisplay}',
-                    color: t.success,
-                    onTap: () => _pickWorkEnd(context, s),
-                    t: t,
                   ),
                 ],
               ),
+
+              // Breaks strip (compact)
+              if (enabledBreaks.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 32,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: enabledBreaks.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 6),
+                    itemBuilder: (context, i) {
+                      final b = enabledBreaks[i];
+                      return GestureDetector(
+                        onTap: () => BreakSheet.show(context, existing: b),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: t.warning.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(AppRadii.pill),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.free_breakfast_rounded, size: 13, color: t.warning),
+                              const SizedBox(width: 5),
+                              Text(
+                                '${b.label} ${b.timeDisplay}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: t.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () => BreakSheet.show(context),
+                  child: Text(
+                    '+ Add lunch or a break',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: t.accent,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         );
       },
     );
-  }
-
-  Widget _marker(double trackW, double p, Color color, IconData icon) {
-    return Positioned(
-      left: (trackW * p).clamp(0.0, trackW) - 8,
-      top: 4,
-      child: Container(
-        width: 16,
-        height: 16,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 10, color: Colors.white),
-      ),
-    );
-  }
-
-  Future<void> _editWorkWindow(BuildContext context, AppSettings s) async {
-    // Open start picker first as a simple entry; end stays on long-press of end legend
-    await _pickWorkStart(context, s);
   }
 
   Future<void> _pickWorkStart(BuildContext context, AppSettings s) async {
@@ -244,6 +334,9 @@ class DayTimeline extends StatelessWidget {
     if (picked == null || !context.mounted) return;
     final updated = s.copyWith(workStartHour: picked.hour, workStartMinute: picked.minute);
     context.read<SettingsBloc>().add(UpdateSettingsEvent(updated));
+    if (s.notificationsEnabled) {
+      await NotificationService.instance.syncFromSettings(updated);
+    }
   }
 
   Future<void> _pickWorkEnd(BuildContext context, AppSettings s) async {
@@ -256,35 +349,23 @@ class DayTimeline extends StatelessWidget {
     context.read<SettingsBloc>().add(UpdateSettingsEvent(updated));
     context.read<DailyBloc>().add(SetWorkEndTimeEvent(hour: picked.hour, minute: picked.minute));
     if (s.notificationsEnabled) {
-      await NotificationService.instance.syncNotifications(
-        enabled: true,
-        workEndEnabled: updated.workEndNotificationEnabled,
-        workEndHour: updated.workEndHour,
-        workEndMinute: updated.workEndMinute,
-        morningEnabled: updated.morningReminderEnabled,
-        morningHour: updated.morningReminderHour,
-        morningMinute: updated.morningReminderMinute,
-        weeklyEnabled: updated.weeklyReminderEnabled,
-        weeklyHour: updated.weeklyReminderHour,
-        weeklyMinute: updated.weeklyReminderMinute,
-        customReminders: updated.customReminders,
-        wrapUpEnabled: updated.wrapUpEnabled,
-        wrapUpMinutesBefore: updated.wrapUpMinutesBefore,
-      );
+      await NotificationService.instance.syncFromSettings(updated);
     }
   }
 }
 
-class _Legend extends StatelessWidget {
-  final IconData icon;
+class _TimePill extends StatelessWidget {
   final String label;
+  final String time;
+  final IconData icon;
   final Color color;
   final VoidCallback onTap;
   final NTheme t;
 
-  const _Legend({
-    required this.icon,
+  const _TimePill({
     required this.label,
+    required this.time,
+    required this.icon,
     required this.color,
     required this.onTap,
     required this.t,
@@ -295,20 +376,49 @@ class _Legend extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: t.background,
-          borderRadius: BorderRadius.circular(AppRadii.pill),
+          borderRadius: BorderRadius.circular(AppRadii.large),
+          boxShadow: t.insetShadow,
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: t.textSecondary),
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 15, color: color),
             ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                      color: t.textTertiary,
+                    ),
+                  ),
+                  Text(
+                    time,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: t.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.edit_outlined, size: 13, color: t.textTertiary),
           ],
         ),
       ),

@@ -7,20 +7,13 @@ import 'package:intl/intl.dart';
 import '../bloc/daily_bloc.dart';
 import '../bloc/daily_event.dart';
 import '../bloc/daily_state.dart';
-import '../bloc/settings_bloc.dart';
-import '../bloc/settings_event.dart';
-import '../bloc/settings_state.dart';
 import '../models/daily_model.dart';
 import '../models/goal_model.dart';
-import '../models/settings_model.dart';
-import '../services/notification_service.dart';
 import '../services/support_card_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/break_sheet.dart';
 import '../widgets/day_timeline.dart';
 import '../widgets/support_bottom_sheet.dart';
 
-enum _ReminderType { morning, workEnd }
 
 class DailyScreen extends StatelessWidget {
   const DailyScreen({super.key});
@@ -121,10 +114,26 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
 
     final greeting = _greeting(now.hour);
 
+    // Soft phase tint: morning → midday → evening
+    final phaseTint = _phaseTint(now.hour, t);
+
     return Scaffold(
       backgroundColor: t.background,
       resizeToAvoidBottomInset: false,
-      body: SafeArea(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              phaseTint,
+              t.background,
+              t.background,
+            ],
+            stops: const [0.0, 0.35, 1.0],
+          ),
+        ),
+        child: SafeArea(
         child: Column(
           children: [
             // Header
@@ -140,7 +149,7 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
                         const SizedBox(height: 2),
                         Text(
                           DateFormat('EEEE, MMM d').format(daily.date),
-                          style: Theme.of(context).textTheme.displayLarge,
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ],
                     ),
@@ -153,7 +162,8 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               color: t.textPrimary,
                               fontWeight: FontWeight.w600,
-                              letterSpacing: -0.5,
+                             // letterSpacing: -0.5,
+                              fontStyle: FontStyle.italic,
                             ),
                       ),
                       if (streak > 0) ...[
@@ -166,37 +176,32 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
               ),
             ),
 
-            // Day frame: start → breaks → end
-            const SizedBox(height: 10),
+            // Work day hero (status, progress, start/end, breaks)
+            const SizedBox(height: 14),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: DayTimeline(now: now),
             ),
 
-            // Reminder chips (morning + work end)
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: _ReminderBar(onPickTime: (type) => _pickReminderTime(context, type)),
-            ),
-
-            // Break windows — add / edit directly from Today
-            const SizedBox(height: 12),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
-              child: BreaksBar(),
-            ),
-
-            // Progress bar
+            // Goal completion card
             if (daily.totalGoalsCount > 0) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: _ProgressBar(daily: daily),
               ),
             ],
 
-            const SizedBox(height: 14),
+            // Celebrate when everything is done
+            if (daily.totalGoalsCount > 0 && daily.allGoalsCompleted) ...[
+              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: _AllDoneCelebration(),
+              ),
+            ],
+
+            const SizedBox(height: 12),
 
             // Carryover banner
             if (state is DailyLoaded && state.carryoverGoals.isNotEmpty)
@@ -280,83 +285,72 @@ class _DashboardViewState extends State<_DashboardView> with WidgetsBindingObser
               },
             ),
 
-            // Work-ends card + Add button — hidden while keyboard is open
+            // Bottom actions — work-end info lives in the hero card above
             if (!keyboardOpen)
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
                 child: Column(
                   children: [
-                    _WorkEndCard(
-                      daily: daily,
-                      isDone: isDone,
-                      remaining: remaining,
-                      onWindDown: () => context.pushNamed('winddown', extra: {'daily': daily}),
-                    ),
-                    const SizedBox(height: 12),
+                    // Wind down when the day is ending or already over
+                    if (isDone || remaining.inMinutes <= 60) ...[
+                      GestureDetector(
+                        onTap: () => context.pushNamed('winddown', extra: {'daily': daily}),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: t.surface,
+                            borderRadius: BorderRadius.circular(AppRadii.large),
+                            boxShadow: t.boxShadow,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.nightlight_round, size: 18, color: t.accent),
+                              const SizedBox(width: 8),
+                              Text(
+                                isDone ? 'Wind down for the evening' : 'Ready to wind down?',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: t.accent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     _AddGoalButton(onTap: () => _showAddSheet(context)),
                   ],
                 ),
               ),
           ],
         ),
+        ),
       ),
     );
+  }
+
+  Color _phaseTint(int hour, NTheme t) {
+    // Soft top wash — morning cool, midday warm, evening indigo
+    if (hour < 11) {
+      return Color.lerp(t.background, const Color(0xFFA5B4FC), 0.22)!; // soft indigo morning
+    }
+    if (hour < 16) {
+      return Color.lerp(t.background, const Color(0xFFFDE68A), 0.18)!; // soft afternoon sun
+    }
+    if (hour < 19) {
+      return Color.lerp(t.background, const Color(0xFFFDBA74), 0.16)!; // golden wrap-up
+    }
+    return Color.lerp(t.background, const Color(0xFFC4B5FD), 0.18)!; // evening calm
   }
 
   String _greeting(int hour) {
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
     return 'Good evening';
-  }
-
-  Future<void> _pickReminderTime(BuildContext context, _ReminderType type) async {
-    final settingsBloc = context.read<SettingsBloc>();
-    final settings = settingsBloc.current;
-    final initial = type == _ReminderType.morning
-        ? TimeOfDay(hour: settings.morningReminderHour, minute: settings.morningReminderMinute)
-        : TimeOfDay(hour: settings.workEndHour, minute: settings.workEndMinute);
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final nt = NTheme.of(context);
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: initial,
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: isDark
-              ? ColorScheme.dark(
-                  primary: nt.accent,
-                  onPrimary: Colors.white,
-                  surface: nt.surface,
-                  onSurface: nt.textPrimary,
-                )
-              : ColorScheme.light(
-                  primary: nt.accent,
-                  onPrimary: Colors.white,
-                  surface: nt.background,
-                  onSurface: nt.textPrimary,
-                ),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked == null || !context.mounted) return;
-
-    if (type == _ReminderType.morning) {
-      final updated = settings.copyWith(morningReminderHour: picked.hour, morningReminderMinute: picked.minute);
-      settingsBloc.add(UpdateSettingsEvent(updated));
-      if (settings.notificationsEnabled && settings.morningReminderEnabled) {
-        await NotificationService.instance.scheduleMorningReminder(picked.hour, picked.minute);
-      }
-    } else {
-      final updated = settings.copyWith(workEndHour: picked.hour, workEndMinute: picked.minute);
-      settingsBloc.add(UpdateSettingsEvent(updated));
-      // Keep today's Daily record + countdown in sync with the new work-end time
-      context.read<DailyBloc>().add(SetWorkEndTimeEvent(hour: picked.hour, minute: picked.minute));
-      if (settings.notificationsEnabled && settings.workEndNotificationEnabled) {
-        await NotificationService.instance.scheduleWorkEndNotification(picked.hour, picked.minute);
-      }
-    }
   }
 
   void _showAddSheet(BuildContext context) {
@@ -550,47 +544,71 @@ class _ProgressBar extends StatelessWidget {
     final ratio = daily.completionRatio;
     final pct = (ratio * 100).round();
     final barColor = daily.allGoalsCompleted ? t.success : t.accent;
-    return Row(
-      children: [
-        // Big percentage
-        SizedBox(
-          width: 52,
-          child: Text(
-            '$pct%',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: daily.allGoalsCompleted ? t.success : t.textPrimary,
-              letterSpacing: -1,
+    final left = daily.totalGoalsCount - daily.completedGoalsCount;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(AppRadii.extraLarge),
+        boxShadow: t.boxShadow,
+      ),
+      child: Row(
+        children: [
+          // Circular percent
+          SizedBox(
+            width: 52,
+            height: 52,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: CircularProgressIndicator(
+                    value: ratio,
+                    strokeWidth: 5,
+                    backgroundColor: t.textTertiary.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation(barColor),
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                Text(
+                  '$pct%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: daily.allGoalsCompleted ? t.success : t.textPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        // Progress bar
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadii.pill),
-                child: LinearProgressIndicator(
-                  value: ratio,
-                  backgroundColor: t.shadowDark.withValues(alpha: 0.10),
-                  valueColor: AlwaysStoppedAnimation(barColor),
-                  minHeight: 8,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  daily.allGoalsCompleted ? 'All goals done' : 'Today’s progress',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: t.textPrimary,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                daily.allGoalsCompleted
-                    ? 'All done — great work!'
-                    : '${daily.completedGoalsCount} of ${daily.totalGoalsCount} goals done',
-                style: TextStyle(fontSize: 11, color: t.textTertiary, fontWeight: FontWeight.w500),
-              ),
-            ],
+                const SizedBox(height: 3),
+                Text(
+                  daily.allGoalsCompleted
+                      ? 'Great work — protect your rest'
+                      : '$left goal${left == 1 ? '' : 's'} left · ${daily.completedGoalsCount}/${daily.totalGoalsCount} done',
+                  style: TextStyle(fontSize: 12, color: t.textSecondary),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -739,10 +757,13 @@ class _GoalTile extends StatelessWidget {
                     // Checkbox — only this marks done
                     GestureDetector(
                       onTap: () {
-                        HapticFeedback.lightImpact();
                         if (goal.isCompleted) {
+                          HapticFeedback.selectionClick();
                           context.read<DailyBloc>().add(UncompleteGoalEvent(goal.id));
                         } else {
+                          // Gentle success haptic on complete
+                          HapticFeedback.lightImpact();
+                          HapticFeedback.selectionClick();
                           context.read<DailyBloc>().add(CompleteGoalEvent(goal.id));
                         }
                       },
@@ -868,116 +889,6 @@ class _GoalTile extends StatelessWidget {
   }
 }
 
-// ─── Work end card ────────────────────────────────────────────────────────────
-
-class _WorkEndCard extends StatelessWidget {
-  final Daily daily;
-  final bool isDone;
-  final Duration remaining;
-  final VoidCallback onWindDown;
-
-  const _WorkEndCard({
-    required this.daily,
-    required this.isDone,
-    required this.remaining,
-    required this.onWindDown,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = NTheme.of(context);
-    final h = daily.workEndHour;
-    final m = daily.workEndMinute;
-    final period = h >= 12 ? 'PM' : 'AM';
-    final dispH = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-    final timeStr = '$dispH:${m.toString().padLeft(2, '0')} $period';
-
-    return Row(
-      children: [
-        // Work end info — display only, not tappable
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDone
-                  ? AppColors.success.withValues(alpha: 0.09)
-                  : t.accent.withValues(alpha: 0.07),
-              borderRadius: BorderRadius.circular(AppRadii.large),
-              boxShadow: t.insetShadow,
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-            child: Row(
-              children: [
-                Icon(
-                  isDone ? Icons.check_circle_outline_rounded : Icons.schedule_outlined,
-                  size: 20,
-                  color: isDone ? AppColors.success : t.textSecondary,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isDone ? 'Work done ✓' : 'Work ends at $timeStr',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      Text(
-                        isDone
-                            ? 'Great job today'
-                            : '${remaining.inHours}h ${remaining.inMinutes % 60}min remaining',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(width: 10),
-
-        // Wind-down button — tappable
-        GestureDetector(
-          onTap: onWindDown,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: isDone
-                  ? t.accent.withValues(alpha: 0.1)
-                  : t.surface,
-              borderRadius: BorderRadius.circular(AppRadii.large),
-              boxShadow: t.boxShadow,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.nightlight_round_outlined,
-                  size: 22,
-                  color: isDone ? t.accent : t.textTertiary,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Wind\nDown',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: isDone ? t.accent : t.textTertiary,
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ─── Add goal button ──────────────────────────────────────────────────────────
 
 class _AddGoalButton extends StatelessWidget {
@@ -1027,26 +938,110 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = NTheme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.check_box_outline_blank_rounded, size: 32, color: t.textTertiary.withValues(alpha: 0.4)),
-          const SizedBox(height: 8),
-          Text(
-            'No goals yet',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: t.textTertiary),
+    // Fits short Expanded slots (hero + breaks leave little vertical room).
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tight = constraints.maxHeight < 260;
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: tight ? 72 : 96,
+                      height: tight ? 56 : 72,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Positioned(
+                            left: 4,
+                            top: 8,
+                            child: _EmptyBlob(
+                              size: tight ? 36 : 48,
+                              color: t.accent.withValues(alpha: 0.12),
+                            ),
+                          ),
+                          Positioned(
+                            right: 2,
+                            top: 2,
+                            child: _EmptyBlob(
+                              size: tight ? 28 : 36,
+                              color: t.success.withValues(alpha: 0.14),
+                            ),
+                          ),
+                          Icon(
+                            Icons.flag_outlined,
+                            size: tight ? 26 : 32,
+                            color: t.accent.withValues(alpha: 0.9),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: tight ? 8 : 12),
+                    Text(
+                      'Your day is open',
+                      style: TextStyle(
+                        fontSize: tight ? 15 : 16,
+                        fontWeight: FontWeight.w700,
+                        color: t.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Add 1–3 goals you can finish today.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, height: 1.35, color: t.textSecondary),
+                    ),
+                    SizedBox(height: tight ? 10 : 14),
+                    GestureDetector(
+                      onTap: onAdd,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: t.accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(AppRadii.pill),
+                        ),
+                        child: Text(
+                          'Add your first goal',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: t.accent,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Tap + Add Goal to start your day',
-            style: TextStyle(fontSize: 12, color: t.textTertiary.withValues(alpha: 0.7)),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
+
+class _EmptyBlob extends StatelessWidget {
+  final double size;
+  final Color color;
+  const _EmptyBlob({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
 
 // ─── Add goal bottom sheet ────────────────────────────────────────────────────
 
@@ -1502,99 +1497,105 @@ class _RecurringGoalsSheet extends StatelessWidget {
   }
 }
 
-// ─── Reminder bar ─────────────────────────────────────────────────────────────
 
-class _ReminderBar extends StatelessWidget {
-  final void Function(_ReminderType) onPickTime;
-  const _ReminderBar({required this.onPickTime});
 
-  String _fmt(int h, int m) {
-    final period = h >= 12 ? 'PM' : 'AM';
-    final dh = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-    return '$dh:${m.toString().padLeft(2, '0')} $period';
-  }
+// ─── All done celebration ─────────────────────────────────────────────────────
+
+class _AllDoneCelebration extends StatefulWidget {
+  const _AllDoneCelebration();
 
   @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<SettingsBloc, SettingsState>(
-      builder: (context, state) {
-        final s = state is SettingsLoaded ? state.settings : const AppSettings();
-        final t = NTheme.of(context);
-        return Row(
-          children: [
-            _ReminderChip(
-              icon: Icons.wb_sunny_outlined,
-              label: 'Morning',
-              time: _fmt(s.morningReminderHour, s.morningReminderMinute),
-              enabled: s.notificationsEnabled && s.morningReminderEnabled,
-              onTap: () => onPickTime(_ReminderType.morning),
-              t: t,
-            ),
-            const SizedBox(width: 10),
-            _ReminderChip(
-              icon: Icons.alarm_outlined,
-              label: 'Work end',
-              time: _fmt(s.workEndHour, s.workEndMinute),
-              enabled: s.notificationsEnabled && s.workEndNotificationEnabled,
-              onTap: () => onPickTime(_ReminderType.workEnd),
-              t: t,
-            ),
-          ],
-        );
-      },
-    );
-  }
+  State<_AllDoneCelebration> createState() => _AllDoneCelebrationState();
 }
 
-class _ReminderChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String time;
-  final bool enabled;
-  final VoidCallback onTap;
-  final NTheme t;
+class _AllDoneCelebrationState extends State<_AllDoneCelebration>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
 
-  const _ReminderChip({
-    required this.icon,
-    required this.label,
-    required this.time,
-    required this.enabled,
-    required this.onTap,
-    required this.t,
-  });
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600))
+      ..forward();
+    HapticFeedback.mediumImpact();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    final t = NTheme.of(context);
+    final w = MediaQuery.sizeOf(context).width;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        return Container(
+          height: 88,
           decoration: BoxDecoration(
             color: t.surface,
-            borderRadius: BorderRadius.circular(AppRadii.large),
+            borderRadius: BorderRadius.circular(AppRadii.extraLarge),
             boxShadow: t.boxShadow,
           ),
-          child: Row(
+          clipBehavior: Clip.hardEdge,
+          child: Stack(
             children: [
-              Icon(icon, size: 16, color: enabled ? t.accent : t.textTertiary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              ...List.generate(14, (i) {
+                final seed = (i * 37) % 100 / 100.0;
+                final x = (i * 27) % 100 / 100.0;
+                final y = (0.15 + seed * 0.7) * (0.4 + _c.value * 0.6);
+                final colors = [t.accent, t.success, t.warning, const Color(0xFFEC4899)];
+                return Positioned(
+                  left: x * (w - 48) * 0.85,
+                  top: y * 70,
+                  child: Opacity(
+                    opacity: (1.0 - _c.value * 0.35).clamp(0.3, 1.0),
+                    child: Container(
+                      width: 6 + (i % 3) * 2.0,
+                      height: 6 + (i % 3) * 2.0,
+                      decoration: BoxDecoration(
+                        color: colors[i % colors.length],
+                        shape: i % 2 == 0 ? BoxShape.circle : BoxShape.rectangle,
+                        borderRadius: i % 2 == 0 ? null : BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(label,
-                        style: TextStyle(fontSize: 10, color: t.textTertiary, fontWeight: FontWeight.w600)),
-                    Text(time,
-                        style: TextStyle(fontSize: 13, color: enabled ? t.textPrimary : t.textTertiary, fontWeight: FontWeight.w700)),
+                    Icon(Icons.celebration_rounded, color: t.success, size: 22),
+                    const SizedBox(width: 10),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'All done for today',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: t.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Protect your rest — you earned it',
+                          style: TextStyle(fontSize: 12, color: t.textSecondary),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              Icon(Icons.edit_outlined, size: 13, color: t.textTertiary),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

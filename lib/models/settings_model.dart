@@ -62,6 +62,11 @@ class AppSettings {
   @HiveField(17)
   final int wrapUpMinutesBefore;
 
+  /// Minutes before work start for the prep / “plan your day” reminder
+  /// (same idea as wrap-up, but at the start of the day).
+  @HiveField(18)
+  final int prepMinutesBefore;
+
   const AppSettings({
     this.workEndHour = 18,
     this.workEndMinute = 0,
@@ -76,11 +81,15 @@ class AppSettings {
     this.weeklyReminderHour = 20,
     this.weeklyReminderMinute = 0,
     this.hasSeenOnboarding = false,
+    // Lunch / breaks are user-defined
     this.customReminders = const [],
-    this.workStartHour = 9,
+    // Default work day: 8:00 AM – 6:00 PM
+    this.workStartHour = 8,
     this.workStartMinute = 0,
     this.wrapUpEnabled = true,
     this.wrapUpMinutesBefore = 15,
+    // 15 min before 8:00 → prep at 7:45 AM (with sound)
+    this.prepMinutesBefore = 15,
   });
 
   AppSettings copyWith({
@@ -102,6 +111,7 @@ class AppSettings {
     int? workStartMinute,
     bool? wrapUpEnabled,
     int? wrapUpMinutesBefore,
+    int? prepMinutesBefore,
   }) {
     return AppSettings(
       workEndHour: workEndHour ?? this.workEndHour,
@@ -122,6 +132,7 @@ class AppSettings {
       workStartMinute: workStartMinute ?? this.workStartMinute,
       wrapUpEnabled: wrapUpEnabled ?? this.wrapUpEnabled,
       wrapUpMinutesBefore: wrapUpMinutesBefore ?? this.wrapUpMinutesBefore,
+      prepMinutesBefore: prepMinutesBefore ?? this.prepMinutesBefore,
     );
   }
 
@@ -133,19 +144,41 @@ class AppSettings {
 
   String get workEndDisplay => _fmt(workEndHour, workEndMinute);
   String get workStartDisplay => _fmt(workStartHour, workStartMinute);
-  String get morningReminderDisplay => _fmt(morningReminderHour, morningReminderMinute);
   String get weeklyReminderDisplay => _fmt(weeklyReminderHour, weeklyReminderMinute);
 
   int get workStartMinutes => workStartHour * 60 + workStartMinute;
   int get workEndMinutes => workEndHour * 60 + workEndMinute;
 
+  /// Clock time when the prep reminder fires (work start − prepMinutesBefore).
+  (int hour, int minute) get prepFireTime {
+    final total = workStartMinutes - prepMinutesBefore;
+    final normalized = ((total % (24 * 60)) + (24 * 60)) % (24 * 60);
+    return (normalized ~/ 60, normalized % 60);
+  }
+
+  /// Clock time when wrap-up fires (work end − wrapUpMinutesBefore).
+  (int hour, int minute) get wrapUpFireTime {
+    final total = workEndMinutes - wrapUpMinutesBefore;
+    final normalized = ((total % (24 * 60)) + (24 * 60)) % (24 * 60);
+    return (normalized ~/ 60, normalized % 60);
+  }
+
+  /// Legacy display — now derived from work start + prep offset.
+  String get morningReminderDisplay {
+    final (h, m) = prepFireTime;
+    return _fmt(h, m);
+  }
+
   /// Human label for the day frame, e.g. "9:00 AM – 6:00 PM".
   String get workWindowDisplay => '$workStartDisplay – $workEndDisplay';
 
   String get wrapUpDisplay {
-    final total = workEndMinutes - wrapUpMinutesBefore;
-    final h = ((total % (24 * 60)) + (24 * 60)) % (24 * 60) ~/ 60;
-    final m = ((total % (24 * 60)) + (24 * 60)) % (24 * 60) % 60;
+    final (h, m) = wrapUpFireTime;
     return '${_fmt(h, m)} ($wrapUpMinutesBefore min before end)';
+  }
+
+  String get prepDisplay {
+    final (h, m) = prepFireTime;
+    return '${_fmt(h, m)} ($prepMinutesBefore min before start)';
   }
 }

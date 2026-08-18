@@ -30,21 +30,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       final permStatus = await Permission.notification.status;
       if (permStatus.isGranted) {
         // Re-sync after reboot — Android clears all pending alarms on restart.
-        await NotificationService.instance.syncNotifications(
-          enabled: true,
-          workEndEnabled: settings.workEndNotificationEnabled,
-          workEndHour: settings.workEndHour,
-          workEndMinute: settings.workEndMinute,
-          morningEnabled: settings.morningReminderEnabled,
-          morningHour: settings.morningReminderHour,
-          morningMinute: settings.morningReminderMinute,
-          weeklyEnabled: settings.weeklyReminderEnabled,
-          weeklyHour: settings.weeklyReminderHour,
-          weeklyMinute: settings.weeklyReminderMinute,
-          customReminders: settings.customReminders,
-          wrapUpEnabled: settings.wrapUpEnabled,
-          wrapUpMinutesBefore: settings.wrapUpMinutesBefore,
-        );
+        await NotificationService.instance.syncFromSettings(settings);
       } else {
         // Permission was revoked in device Settings — mirror that in app state.
         final updated = settings.copyWith(notificationsEnabled: false);

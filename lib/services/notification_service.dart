@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 
 import '../models/custom_reminder.dart';
+import '../models/settings_model.dart';
 
 class NotificationService {
   NotificationService._();
@@ -14,9 +15,10 @@ class NotificationService {
   bool _initialized = false;
 
   static const _workEndId = 1;
-  static const _morningId = 2;
+  static const _morningId = 2; // prep before start (sound + text)
   static const _weeklyId = 3;
   static const _wrapUpId = 4;
+  static const _workStartId = 5; // exact work start (text only)
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -75,29 +77,86 @@ class NotificationService {
     );
   }
 
-  Future<void> scheduleMorningReminder(int hour, int minute) async {
+  /// Prep / “plan your day” reminder — [minutesBefore] before work start
+  /// (mirrors wrap-up, which is before work end).
+  Future<void> scheduleMorningReminder({
+    required int workStartHour,
+    required int workStartMinute,
+    required int minutesBefore,
+  }) async {
     await _plugin.cancel(_morningId);
+    if (minutesBefore <= 0) return;
+
+    final startTotal = workStartHour * 60 + workStartMinute - minutesBefore;
+    final normalized = ((startTotal % (24 * 60)) + (24 * 60)) % (24 * 60);
+    final hour = normalized ~/ 60;
+    final minute = normalized % 60;
+
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
 
+    // Prep: sound + text (heads-up before the day starts)
     await _plugin.zonedSchedule(
       _morningId,
-      'Good morning',
-      'Set your goals for today.',
+      'Plan your day',
+      'About $minutesBefore minutes until work starts. Set a few goals.',
       scheduled,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'morning_reminder_v2',
-          'Morning Reminder',
-          channelDescription: 'Daily morning goal reminder',
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
+          'prep_reminder_sound_v1',
+          'Prep reminder',
+          channelDescription: 'Sound + text before work start so you can plan the day',
+          importance: Importance.high,
+          priority: Priority.high,
           sound: RawResourceAndroidNotificationSound('notisong'),
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(
+          presentSound: true,
+          presentBadge: true,
+          presentAlert: true,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  }
+
+  /// Exact work start — short ~2s chime (not the long 6s alert).
+  Future<void> scheduleWorkStartNotification({
+    required int hour,
+    required int minute,
+  }) async {
+    await _plugin.cancel(_workStartId);
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
+    // New channel id so Android picks up the short sound (not the old silent channel).
+    await _plugin.zonedSchedule(
+      _workStartId,
+      'Work has started',
+      'Your work day is on. Focus on today’s goals.',
+      scheduled,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'work_start_short_v1',
+          'Work start',
+          channelDescription: 'Short chime at work start',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+          sound: RawResourceAndroidNotificationSound('notishort'),
+        ),
+        iOS: DarwinNotificationDetails(
+          presentSound: true,
+          presentBadge: true,
+          presentAlert: true,
+        ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
@@ -224,6 +283,7 @@ class NotificationService {
       scheduled = scheduled.add(const Duration(days: 1));
     }
 
+    // Short chime (~2s) — same as work start; long sound reserved for prep / work end.
     await _plugin.zonedSchedule(
       _wrapUpId,
       'Wrap up soon',
@@ -231,12 +291,12 @@ class NotificationService {
       scheduled,
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'wrap_up_v1',
+          'wrap_up_short_v1',
           'Wrap-up reminder',
-          channelDescription: 'Heads-up before work end so you can close the day on time',
+          channelDescription: 'Short chime before work end so you can close the day on time',
           importance: Importance.high,
           priority: Priority.high,
-          sound: RawResourceAndroidNotificationSound('notisong'),
+          sound: RawResourceAndroidNotificationSound('notishort'),
         ),
         iOS: DarwinNotificationDetails(),
       ),
@@ -254,8 +314,9 @@ class NotificationService {
     required int workEndHour,
     required int workEndMinute,
     required bool morningEnabled,
-    required int morningHour,
-    required int morningMinute,
+    required int workStartHour,
+    required int workStartMinute,
+    int prepMinutesBefore = 15,
     bool weeklyEnabled = false,
     int weeklyHour = 20,
     int weeklyMinute = 0,
@@ -281,10 +342,24 @@ class NotificationService {
     } else {
       await cancelWrapUp();
     }
-    if (morningEnabled) {
-      await scheduleMorningReminder(morningHour, morningMinute);
+    // Prep = sound + text, X min before work start
+    if (morningEnabled && prepMinutesBefore > 0) {
+      await scheduleMorningReminder(
+        workStartHour: workStartHour,
+        workStartMinute: workStartMinute,
+        minutesBefore: prepMinutesBefore,
+      );
     } else {
       await cancelMorning();
+    }
+    // Work start = short chime at the exact start time
+    if (enabled) {
+      await scheduleWorkStartNotification(
+        hour: workStartHour,
+        minute: workStartMinute,
+      );
+    } else {
+      await cancelWorkStart();
     }
     if (weeklyEnabled) {
       await scheduleWeeklySummary(weeklyHour, weeklyMinute);
@@ -298,6 +373,28 @@ class NotificationService {
   Future<void> cancelMorning() => _plugin.cancel(_morningId);
   Future<void> cancelWeekly() => _plugin.cancel(_weeklyId);
   Future<void> cancelWrapUp() => _plugin.cancel(_wrapUpId);
+  Future<void> cancelWorkStart() => _plugin.cancel(_workStartId);
   Future<void> cancelAll() => _plugin.cancelAll();
+
+  /// Convenience: schedule everything from an [AppSettings] snapshot.
+  Future<void> syncFromSettings(AppSettings s) {
+    return syncNotifications(
+      enabled: s.notificationsEnabled,
+      workEndEnabled: s.workEndNotificationEnabled,
+      workEndHour: s.workEndHour,
+      workEndMinute: s.workEndMinute,
+      morningEnabled: s.morningReminderEnabled,
+      workStartHour: s.workStartHour,
+      workStartMinute: s.workStartMinute,
+      prepMinutesBefore: s.prepMinutesBefore,
+      weeklyEnabled: s.weeklyReminderEnabled,
+      weeklyHour: s.weeklyReminderHour,
+      weeklyMinute: s.weeklyReminderMinute,
+      customReminders: s.customReminders,
+      wrapUpEnabled: s.wrapUpEnabled,
+      wrapUpMinutesBefore: s.wrapUpMinutesBefore,
+    );
+  }
 }
+
 
