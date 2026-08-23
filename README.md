@@ -6,6 +6,15 @@ No bloat. No subscriptions. No ads. Just a clean daily system that respects your
 
 ---
 
+## Download
+
+**[Download APK (latest)](https://github.com/Cleversta/done_daily/releases/latest)**
+
+Free for everyone. No account, no ads, no tracking.  
+If Android blocks install → allow “Install from unknown sources” for your browser/file manager.
+
+---
+
 ## What It Does
 
 Most productivity apps make you feel like you're never doing enough. DONE:Daily works differently — it has a clear end to the day built in. You set a work end time, you do your goals, and when the time comes, you wind down and rest. That's it.
@@ -109,20 +118,3 @@ flutter build apk --release
 
 # Build release App Bundle (Play Store)
 flutter build appbundle --release
-```
-
-Signing is configured via `android/key.properties` (not included in the repo).
-
----
-
-## About the Developer
-
-DONE:Daily is built by **marason** — a solo developer who builds simple, honest tools.
-
-🔗 https://cleversta.github.io/about_me/
-
----
-
-## License
-
-All rights reserved © 2026 DONE:Daily.
