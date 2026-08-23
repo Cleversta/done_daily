@@ -509,6 +509,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _showSupportSheet(BuildContext context) {
+    final t = NTheme.of(context);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: t.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final t = NTheme.of(context);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: t.textTertiary.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text('Support the developer', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 6),
+                Text(
+                  'DONE:Daily is free and ad-free. Choose how you\'d like to help.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: t.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                _SupportOptionRow(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'Support with PayPal or Card',
+                  subtitle: 'One-time or monthly, via Ko-fi',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openUrl('https://ko-fi.com/marasontleitu');
+                  },
+                ),
+                const _Divider(),
+                _SupportOptionRow(
+                  icon: Icons.credit_card,
+                  title: 'Support with Card',
+                  subtitle: 'One-time or monthly, via GitHub Sponsors',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openUrl('https://github.com/sponsors/Cleversta');
+                  },
+                ),
+                const _Divider(),
+                _SupportOptionRow(
+                  icon: Icons.currency_bitcoin,
+                  title: 'Support with Crypto',
+                  subtitle: 'BTC, USDT, and other coins',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openUrl(
+                      'https://nowpayments.io/donation?api_key=7a581856-5b50-4d20-815a-83e268a1fcdf',
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = NTheme.of(context);
@@ -852,9 +926,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                       const SizedBox(height: 16),
 
-                      // CTA button
+                      // CTA button — opens the support options sheet
                       GestureDetector(
-                        onTap: () => _openUrl('https://cleversta.github.io/about_me/'),
+                        onTap: () => _showSupportSheet(context),
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -868,7 +942,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               Icon(Icons.volunteer_activism_rounded, size: 16, color: Colors.white),
                               SizedBox(width: 8),
                               Text(
-                                'Visit developer page',
+                                'Support the developer',
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -876,6 +950,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // Secondary link — developer portfolio page
+                      Center(
+                        child: GestureDetector(
+                          onTap: () => _openUrl('https://cleversta.github.io/about_me/'),
+                          child: Text(
+                            'Visit developer page →',
+                            style: TextStyle(fontSize: 12, color: t.accent, fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),
@@ -1159,6 +1246,62 @@ class _FreeBadge extends StatelessWidget {
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Support option row (used in the support sheet) ────────────────────────────
+
+class _SupportOptionRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _SupportOptionRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = NTheme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: t.accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppRadii.large),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, size: 18, color: t.accent),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  Text(subtitle, style: Theme.of(context).textTheme.labelMedium),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 18, color: t.textTertiary),
+          ],
+        ),
       ),
     );
   }

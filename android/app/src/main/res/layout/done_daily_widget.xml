@@ -1,43 +1,134 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Widget layout matching the in-app DayTimeline hero card:
+  status pill · big countdown · next break · day progress · goals line
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="14dp"
     android:background="@drawable/widget_background">
 
-    <TextView
-        android:id="@+id/widget_phase"
+    <!-- Row: status badge + % of day -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="In work"
-        android:textSize="11sp"
-        android:textStyle="bold"
-        android:textColor="#6366F1"
-        android:letterSpacing="0.04" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
+        <TextView
+            android:id="@+id/widget_phase"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/widget_badge_bg"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:text="Working"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#6366F1"
+            android:includeFontPadding="false" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/widget_day_pct"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0% of day"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:textColor="#999999"
+            android:includeFontPadding="false" />
+    </LinearLayout>
+
+    <!-- Big countdown / status (matches DayTimeline statusSub) -->
     <TextView
-        android:id="@+id/widget_title"
+        android:id="@+id/widget_countdown"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:text="DONE:Daily"
+        android:layout_marginTop="10dp"
+        android:text="Open app to refresh"
         android:textSize="20sp"
         android:textStyle="bold"
         android:textColor="#1A1A1A"
-        android:maxLines="1"
-        android:ellipsize="end" />
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:lineSpacingExtra="1dp"
+        android:includeFontPadding="false" />
 
+    <!-- Next break line -->
     <TextView
-        android:id="@+id/widget_summary"
+        android:id="@+id/widget_break"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text="Open the app to refresh"
-        android:textSize="13sp"
+        android:layout_marginTop="5dp"
+        android:text=""
+        android:textSize="12sp"
+        android:textStyle="bold"
         android:textColor="#5A5A5A"
-        android:maxLines="3"
+        android:maxLines="1"
         android:ellipsize="end"
-        android:lineSpacingExtra="2dp" />
+        android:includeFontPadding="false"
+        android:visibility="gone" />
+
+    <!-- Day progress bar -->
+    <ProgressBar
+        android:id="@+id/widget_day_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:layout_marginTop="12dp"
+        android:max="100"
+        android:progress="0"
+        android:progressDrawable="@drawable/widget_progress_bar"
+        android:indeterminate="false" />
+
+    <!-- Thin divider -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="12dp"
+        android:src="@drawable/widget_divider"
+        android:contentDescription="@null" />
+
+    <!-- Goals row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_goals_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="No goals yet"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#1A1A1A"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false" />
+
+        <TextView
+            android:id="@+id/widget_goals_frac"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="#999999"
+            android:includeFontPadding="false" />
+    </LinearLayout>
+
 </LinearLayout>

@@ -43,3 +43,25 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ===== NEVER COMMIT THESE (secrets / local machine) =====
+**/key.properties
+**/local.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+hs_err_pid*
+replay_pid*
+
+# Extra generated / IDE noise
+.flutter-plugins
+.packages
+**/GeneratedPluginRegistrant.java
+**/GeneratedPluginRegistrant.swift
+**/Generated.xcconfig
+**/Flutter.podspec
+**/Pods/
+**/xcuserdata/
+**/.symlinks/
+**/ephemeral/

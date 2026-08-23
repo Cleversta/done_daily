@@ -8,6 +8,9 @@ import '../models/settings_model.dart';
 ///
 /// Android provider class: `com.cleversta.done_daily.DoneDailyWidgetProvider`
 /// Call [GlanceService.update] whenever daily goals or settings change.
+///
+/// Important: remaining-time strings are also recomputed natively in the
+/// widget provider so the countdown keeps ticking even when the app is closed.
 class GlanceSnapshot {
   final int goalsLeft;
   final int goalsTotal;
@@ -17,6 +20,12 @@ class GlanceSnapshot {
   final bool isRestDay;
   final String phaseLabel;
 
+  /// Raw schedule values so the native widget can recompute time remaining.
+  final int workStartHour;
+  final int workStartMinute;
+  final int workEndHour;
+  final int workEndMinute;
+
   const GlanceSnapshot({
     required this.goalsLeft,
     required this.goalsTotal,
@@ -25,6 +34,10 @@ class GlanceSnapshot {
     required this.remainingLabel,
     required this.isRestDay,
     required this.phaseLabel,
+    required this.workStartHour,
+    required this.workStartMinute,
+    required this.workEndHour,
+    required this.workEndMinute,
   });
 
   /// e.g. "2 goals left · ends in 1h 20m · Lunch 12:00"
@@ -57,6 +70,11 @@ class GlanceSnapshot {
             : (goalsTotal == 0
                 ? 'Plan your day'
                 : (goalsLeft == 0 ? 'All done' : '$goalsLeft left')),
+        // Raw numbers for native recompute of countdown
+        'workStartHour': '$workStartHour',
+        'workStartMinute': '$workStartMinute',
+        'workEndHour': '$workEndHour',
+        'workEndMinute': '$workEndMinute',
       };
 
   static GlanceSnapshot from({
@@ -70,8 +88,10 @@ class GlanceSnapshot {
     final done = daily?.completedGoalsCount ?? 0;
     final left = (total - done).clamp(0, total);
 
-    final start = DateTime(n.year, n.month, n.day, settings.workStartHour, settings.workStartMinute);
-    var workEnd = DateTime(n.year, n.month, n.day, settings.workEndHour, settings.workEndMinute);
+    final start = DateTime(
+        n.year, n.month, n.day, settings.workStartHour, settings.workStartMinute);
+    var workEnd = DateTime(
+        n.year, n.month, n.day, settings.workEndHour, settings.workEndMinute);
     if (workEnd.isBefore(start) || workEnd.isAtSameMomentAs(start)) {
       workEnd = workEnd.add(const Duration(days: 1));
     }
@@ -113,6 +133,10 @@ class GlanceSnapshot {
       remainingLabel: remainingLabel,
       isRestDay: isRest,
       phaseLabel: phaseLabel,
+      workStartHour: settings.workStartHour,
+      workStartMinute: settings.workStartMinute,
+      workEndHour: settings.workEndHour,
+      workEndMinute: settings.workEndMinute,
     );
   }
 
